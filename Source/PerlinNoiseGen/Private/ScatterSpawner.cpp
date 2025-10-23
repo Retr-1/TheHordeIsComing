@@ -89,13 +89,26 @@ void AScatterSpawner::Generate()
             if (!RespectSpacing(R, WorldOnPlane.X, WorldOnPlane.Y, Placed2D))
                 continue;
 
-            const float Yaw = R.bRandomYaw ? RNG.FRandRange(0.f, 360.f) : 0.f;
+            // Random spin around the surface normal
+            const float SpinDeg = R.bRandomYaw ? RNG.FRandRange(0.f, 360.f) : 0.f;
             const float ScaleU = FMath::FRandRange(R.UniformScaleRange.X, R.UniformScaleRange.Y);
 
+            // Ensure the normal is normalized
+            const FVector N = n.GetSafeNormal();
+
+            // Lift along the normal to avoid clipping on slopes
+            const FVector Loc = FVector(WorldOnPlane.X, WorldOnPlane.Y, z) + N * R.SurfaceOffset;
+
+            // Build rotation: align actor's +Z to the surface normal, then spin around that normal
+            const FQuat AlignQuat = FRotationMatrix::MakeFromZ(N).ToQuat();
+            const FQuat SpinQuat = FQuat(N, FMath::DegreesToRadians(SpinDeg));
+            const FQuat FinalQuat = SpinQuat * AlignQuat;
+
             FTransform T;
-            T.SetLocation(FVector(WorldOnPlane.X, WorldOnPlane.Y, z + R.SurfaceOffset));
-            T.SetRotation(FQuat(FRotator(0.f, Yaw, 0.f)));
+            T.SetLocation(Loc);
+            T.SetRotation(FinalQuat);
             T.SetScale3D(FVector(ScaleU));
+
 
             FActorSpawnParameters P;
             P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
@@ -123,17 +136,20 @@ bool AScatterSpawner::AcceptByConstraints(const FSpawnRequest& R, float X, float
     // Z window
     if (z < R.MinZ || z > R.MaxZ) return false;
 
-    // Optional: below water rejection (if you have WaterZ in your terrain)
-    if (R.bDisallowBelowWater)
+    // Optional: below water rejection
+    if (R.bDisallowBelowWater && z < Terrain->WaterZ) return false;
+
+    // Always compute normal (we use it for alignment)
+    OutNormal = Terrain->GetNormalAtWorldXY(X, Y, /*bClamp*/true).GetSafeNormal();
+    OutNormal.Normalize();
+    if (OutNormal.Z < 0.f)
     {
-        // Ensure your ANoiseTerrainActor exposes WaterZ
-        if (z < Terrain->WaterZ) return false;
+        OutNormal *= -1.f;  // force up-facing
     }
 
-    // Slope constraint
+    // Slope constraint (optional)
     if (R.MinSlopeDeg > 0.f || R.MaxSlopeDeg < 90.f)
     {
-        OutNormal = Terrain->GetNormalAtWorldXY(X, Y, /*bClamp*/true);
         const float slopeRad = FMath::Acos(FMath::Clamp(OutNormal.Z, -1.f, 1.f));
         const float slopeDeg = FMath::RadiansToDegrees(slopeRad);
         if (slopeDeg < R.MinSlopeDeg || slopeDeg > R.MaxSlopeDeg) return false;
@@ -141,6 +157,7 @@ bool AScatterSpawner::AcceptByConstraints(const FSpawnRequest& R, float X, float
 
     return true;
 }
+
 
 bool AScatterSpawner::RespectSpacing(const FSpawnRequest& R, float X, float Y, const TArray<FVector2D>& Placed2D) const
 {
