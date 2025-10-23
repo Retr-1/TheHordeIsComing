@@ -134,6 +134,8 @@ public:
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Terrain|Query")
     float GetHeightAtWorldXY(float WorldX, float WorldY, bool bClampToBounds = true) const;
 
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Terrain|Query")
+    FVector GetNormalAtWorldXY(float WorldX, float WorldY, bool bClampToBounds = true) const;
 
 
 protected:

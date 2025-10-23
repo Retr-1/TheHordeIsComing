@@ -403,3 +403,28 @@ float ANoiseTerrainActor::GetHeightAtWorldXY(float WorldX, float WorldY, bool bC
     return HeightAtLocalXY(L.X, L.Y, bClampToBounds);
 }
 
+
+FVector ANoiseTerrainActor::GetNormalAtWorldXY(float WorldX, float WorldY, bool bClampToBounds) const
+{
+    if (GridSpacing <= 0.f) return FVector::UpVector;
+
+    const float hC = GetHeightAtWorldXY(WorldX, WorldY, bClampToBounds);
+
+    const FVector P(WorldX, WorldY, 0.f);
+    const FVector RightW = P + FVector(GridSpacing, 0.f, 0.f);
+    const FVector LeftW = P - FVector(GridSpacing, 0.f, 0.f);
+    const FVector FwdW = P + FVector(0.f, GridSpacing, 0.f);
+    const FVector BackW = P - FVector(0.f, GridSpacing, 0.f);
+
+    const float hR = GetHeightAtWorldXY(RightW.X, RightW.Y, bClampToBounds);
+    const float hL = GetHeightAtWorldXY(LeftW.X, LeftW.Y, bClampToBounds);
+    const float hF = GetHeightAtWorldXY(FwdW.X, FwdW.Y, bClampToBounds);
+    const float hB = GetHeightAtWorldXY(BackW.X, BackW.Y, bClampToBounds);
+
+    const FVector dX(2.f * GridSpacing, 0.f, hR - hL);
+    const FVector dY(0.f, 2.f * GridSpacing, hF - hB);
+
+    FVector N = FVector::CrossProduct(dY, dX);
+    const double len2 = N.SizeSquared();
+    return (len2 < 1e-12) ? FVector::UpVector : N / FMath::Sqrt(len2);
+}
