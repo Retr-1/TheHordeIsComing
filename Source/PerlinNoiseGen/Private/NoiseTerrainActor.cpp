@@ -96,6 +96,7 @@ void ANoiseTerrainActor::GenerateGrid(
 
     OutVertices.SetNumUninitialized(TotalVerts);
     OutUVs.SetNumUninitialized(TotalVerts);
+    HeightCache.SetNumUninitialized(VertsX * VertsY);
 
     // --- Heights: index-space sampling for smooth, small hills ---
     // Decouples noise frequency from centimeters; avoids "flat at spacing=200" issue.
@@ -104,45 +105,22 @@ void ANoiseTerrainActor::GenerateGrid(
     {
         for (int32 x = 0; x < VertsX; ++x, ++Index)
         {
-            const float LocalX = x * GridSpacing - HalfW;  // centered around 0
+            const float LocalX = x * GridSpacing - HalfW;  // centered
             const float LocalY = y * GridSpacing - HalfH;
 
-            // Index-space sampling with tiny offset to avoid lattice corners
-            const float nx = (x + NoiseOffset.X) * FeatureScale;
-            const float ny = (y + NoiseOffset.Y) * FeatureScale;
-
-            const float h = NoisePtr->FBm2D(nx, ny, Octaves, Lacunarity, Persistence); // ~[-1,1]
-            float Height = h * HeightAmplitude;
-
-            // --- optional flatten pad with smooth rectangle falloff ---
-            if (bEnableFlatten)
-            {
-                const float Cx = FlattenCenter.X;
-                const float Cy = FlattenCenter.Y;
-                const float hx = 0.5f * FlattenSize.X; // half extents
-                const float hy = 0.5f * FlattenSize.Y;
-
-                // Signed distance to axis-aligned rectangle (negative inside, positive outside)
-                const float sx = FMath::Abs(LocalX - Cx) - hx;
-                const float sy = FMath::Abs(LocalY - Cy) - hy;
-                const float s = FMath::Max(sx, sy); // <= 0 inside the rectangle, > 0 outside
-
-                // Map distance to a 0..1 feather factor with a smoothstep curve
-                const float t = FMath::Clamp(s / FlattenFalloff, 0.f, 1.f);
-                const float w = 1.f - (t * t * (3.f - 2.f * t)); // smoothstep(1 - t)
-
-                // Lerp current height toward the plane height
-                Height = FMath::Lerp(Height, FlattenHeight, w);
-            }
-
+            // Use the unified function
+            const float Height = SampleHeightAtIndex(x, y, LocalX, LocalY);
 
             OutVertices[Index] = FVector(LocalX, LocalY, Height);
             OutUVs[Index] = FVector2D(
-                static_cast<float>(x) / static_cast<float>(NumQuadsX),
-                static_cast<float>(y) / static_cast<float>(NumQuadsY)
+                (float)x / (float)NumQuadsX,
+                (float)y / (float)NumQuadsY
             );
+            HeightCache[Index] = Height;
         }
     }
+    bCacheValid = true;
+
 
     // --- Optional softening pass (one-iteration Laplacian-like) ---
     //if (bSmoothHeights)
@@ -331,3 +309,97 @@ void ANoiseTerrainActor::BuildWaterSection()
     // Optional: hide shadows on a translucent surface (engine usually ignores anyway)
     ProcMesh->bCastDynamicShadow = false;
 }
+
+float ANoiseTerrainActor::SampleHeightAtIndex(int32 ix, int32 iy, float LocalX, float LocalY) const
+{
+    // Noise in *index* space — matches GenerateGrid
+    const float nx = (ix + NoiseOffset.X) * FeatureScale;
+    const float ny = (iy + NoiseOffset.Y) * FeatureScale;
+    const float hNoise = NoisePtr ? NoisePtr->FBm2D(nx, ny, Octaves, Lacunarity, Persistence) : 0.f; // ~[-1,1]
+    float Height = hNoise * HeightAmplitude;
+
+    if (bEnableFlatten)
+    {
+        const float Cx = FlattenCenter.X;
+        const float Cy = FlattenCenter.Y;
+        const float hx = 0.5f * FlattenSize.X;
+        const float hy = 0.5f * FlattenSize.Y;
+
+        const float sx = FMath::Abs(LocalX - Cx) - hx;
+        const float sy = FMath::Abs(LocalY - Cy) - hy;
+        const float s = FMath::Max(sx, sy); // <= 0 inside rectangle
+
+        const float falloff = FMath::Max(FlattenFalloff, 1.f); // avoid div by 0
+        const float t = FMath::Clamp(s / falloff, 0.f, 1.f);
+        const float w = 1.f - Smoothstep01(t); // 1 inside, 0 outside
+
+        Height = FMath::Lerp(Height, FlattenHeight, w);
+    }
+    return Height;
+}
+
+float ANoiseTerrainActor::HeightAtLocalXY(float LocalX, float LocalY, bool bClampToBounds) const
+{
+    const int32 VertsX = NumQuadsX + 1;
+    const int32 VertsY = NumQuadsY + 1;
+
+    const float HalfW = NumQuadsX * GridSpacing * 0.5f;
+    const float HalfH = NumQuadsY * GridSpacing * 0.5f;
+
+    float u = (LocalX + HalfW) / GridSpacing;
+    float v = (LocalY + HalfH) / GridSpacing;
+
+    if (bClampToBounds) {
+        u = FMath::Clamp(u, 0.f, (float)NumQuadsX);
+        v = FMath::Clamp(v, 0.f, (float)NumQuadsY);
+    }
+    else {
+        if (u < 0.f || u > NumQuadsX || v < 0.f || v > NumQuadsY) return 0.f;
+    }
+
+    const int32 ix = FMath::Clamp(FMath::FloorToInt(u), 0, NumQuadsX - 1);
+    const int32 iy = FMath::Clamp(FMath::FloorToInt(v), 0, NumQuadsY - 1);
+    const float  tx = u - (float)ix;
+    const float  ty = v - (float)iy;
+
+    if (bCacheValid && HeightCache.Num() == VertsX * VertsY)
+    {
+        const int32 i00 = CacheIndex(ix, iy, VertsX);
+        const int32 i10 = CacheIndex(ix + 1, iy, VertsX);
+        const int32 i01 = CacheIndex(ix, iy + 1, VertsX);
+        const int32 i11 = CacheIndex(ix + 1, iy + 1, VertsX);
+
+        const float h00 = HeightCache[i00];
+        const float h10 = HeightCache[i10];
+        const float h01 = HeightCache[i01];
+        const float h11 = HeightCache[i11];
+
+        const float hx0 = FMath::Lerp(h00, h10, tx);
+        const float hx1 = FMath::Lerp(h01, h11, tx);
+        return FMath::Lerp(hx0, hx1, ty);
+    }
+
+    // Fallback (no cache): exact computation
+    const float x0 = ix * GridSpacing - HalfW;
+    const float y0 = iy * GridSpacing - HalfH;
+    const float x1 = (ix + 1) * GridSpacing - HalfW;
+    const float y1 = (iy + 1) * GridSpacing - HalfH;
+
+    const float h00 = SampleHeightAtIndex(ix, iy, x0, y0);
+    const float h10 = SampleHeightAtIndex(ix + 1, iy, x1, y0);
+    const float h01 = SampleHeightAtIndex(ix, iy + 1, x0, y1);
+    const float h11 = SampleHeightAtIndex(ix + 1, iy + 1, x1, y1);
+
+    const float hx0 = FMath::Lerp(h00, h10, tx);
+    const float hx1 = FMath::Lerp(h01, h11, tx);
+    return FMath::Lerp(hx0, hx1, ty);
+}
+
+
+float ANoiseTerrainActor::GetHeightAtWorldXY(float WorldX, float WorldY, bool bClampToBounds) const
+{
+    const FTransform& T = GetActorTransform();
+    const FVector L = T.InverseTransformPosition(FVector(WorldX, WorldY, 0.f));
+    return HeightAtLocalXY(L.X, L.Y, bClampToBounds);
+}
+

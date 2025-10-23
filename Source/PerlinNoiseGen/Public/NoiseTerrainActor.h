@@ -130,6 +130,9 @@ public:
     UPROPERTY(EditAnywhere, Category = "Terrain|Water")
     UMaterialInterface* WaterMaterial = nullptr;
 
+    // --- Core height evaluators (no allocation, pure math) ---
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Terrain|Query")
+    float GetHeightAtWorldXY(float WorldX, float WorldY, bool bClampToBounds = true) const;
 
 
 
@@ -149,6 +152,24 @@ private:
 
     void BuildSlabSection();
     void BuildWaterSection();
+
+    // Continuous evaluator in *local/actor* XY (bilinear over index-space samples)
+    float HeightAtLocalXY(float LocalX, float LocalY, bool bClampToBounds = true) const;
+
+    // Fast per-vertex sample at integer grid indices (uses your index-space noise and flatten)
+    float SampleHeightAtIndex(int32 ix, int32 iy, float LocalX, float LocalY) const;
+
+    static FORCEINLINE float Smoothstep01(float t)
+    {
+        t = FMath::Clamp(t, 0.f, 1.f);
+        return t * t * (3.f - 2.f * t);
+    }
+
+    TArray<float> HeightCache;   // (VertsX * VertsY) final Z values
+    bool bCacheValid = false;
+
+    FORCEINLINE int32 CacheIndex(int32 X, int32 Y, int32 VertsX) const { return Y * VertsX + X; }
+
 
     // Seedable Perlin noise (header-only helper)
     FPerlinNoise* NoisePtr = nullptr;
