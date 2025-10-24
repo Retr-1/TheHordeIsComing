@@ -57,6 +57,18 @@ struct FSpawnRequest
     // Optional: don’t place below terrain’s WaterZ
     UPROPERTY(EditAnywhere, Category = "Constraints")
     bool bDisallowBelowWater = false;
+
+    // Avoid the central flattened area on the terrain
+    UPROPERTY(EditAnywhere, Category = "Constraints|Flatten")
+    bool bDisallowOnFlattenCore = false;      // forbid inside the fully-flat rectangle
+
+    UPROPERTY(EditAnywhere, Category = "Constraints|Flatten")
+    bool bDisallowInFlattenBlend = false;     // forbid inside the smooth feather ring
+
+    // Inflate the forbidden zone if you want a safety margin (cm)
+    UPROPERTY(EditAnywhere, Category = "Constraints|Flatten", meta = (ClampMin = "0.0"))
+    float FlattenBlend = 0.f;               // expands the rectangle by this much
+
 };
 
 UCLASS()

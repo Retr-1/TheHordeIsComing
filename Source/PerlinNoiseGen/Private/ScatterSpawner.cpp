@@ -86,7 +86,7 @@ void AScatterSpawner::Generate()
             if (!AcceptByConstraints(R, WorldOnPlane.X, WorldOnPlane.Y, z, n))
                 continue;
 
-            if (!RespectSpacing(R, WorldOnPlane.X, WorldOnPlane.Y, Placed2D))
+            if (R.MinSpacing > 0 && !RespectSpacing(R, WorldOnPlane.X, WorldOnPlane.Y, Placed2D))
                 continue;
 
             // Random spin around the surface normal
@@ -130,8 +130,48 @@ bool AScatterSpawner::AcceptByConstraints(const FSpawnRequest& R, float X, float
 {
     if (!Terrain) return false;
 
+    // --- Reject on flattened platform / blend ring (if requested) ---
+    if ((R.bDisallowOnFlattenCore || R.bDisallowInFlattenBlend) && Terrain->bEnableFlatten)
+    {
+        // World (X,Y) -> Terrain local (x,y)
+        const FVector Local = Terrain->GetActorTransform()
+            .InverseTransformPosition(FVector(X, Y, 0.f));
+        const float lx = Local.X;
+        const float ly = Local.Y;
+
+        // Terrain's flatten params
+        const float Cx = Terrain->FlattenCenter.X;
+        const float Cy = Terrain->FlattenCenter.Y;
+        const float hx = 0.5f * Terrain->FlattenSize.X;
+        const float hy = 0.5f * Terrain->FlattenSize.Y;
+
+        // Signed distance to axis-aligned rectangle:
+        // s <= 0 : inside flat core, s > 0 : outside; s ~ distance from edge
+        const float sx = FMath::Abs(lx - Cx) - hx;
+        const float sy = FMath::Abs(ly - Cy) - hy;
+        const float s = FMath::Max(sx, sy);
+
+        // Core exclusion
+        if (R.bDisallowOnFlattenCore && s <= 0.f)
+            return false;
+
+        // Blend ring exclusion: from edge (s=0) out to falloff distance
+        if (R.bDisallowInFlattenBlend)
+        {
+            const float ringWidth = R.FlattenBlend + FMath::Max(Terrain->FlattenSize.X, Terrain->FlattenSize.Y);
+            if (s > 0.f && s < ringWidth)
+                return false;
+
+            // If you also want to exclude core when only blend is checked, add:
+            // if (s <= 0.f) return false;
+        }
+    }
+
+
     const float z = Terrain->GetHeightAtWorldXY(X, Y, /*bClampToBounds*/true);
     OutZ = z;
+
+
 
     // Z window
     if (z < R.MinZ || z > R.MaxZ) return false;
