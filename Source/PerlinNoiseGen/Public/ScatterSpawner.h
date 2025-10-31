@@ -58,16 +58,15 @@ struct FSpawnRequest
     UPROPERTY(EditAnywhere, Category = "Constraints")
     bool bDisallowBelowWater = false;
 
-    // Avoid the central flattened area on the terrain
+    // Keep spawns off the terrain's central platform (core only)
     UPROPERTY(EditAnywhere, Category = "Constraints|Flatten")
-    bool bDisallowOnFlattenCore = false;      // forbid inside the fully-flat rectangle
+    bool bDisallowOnFlattenCore = false;
 
-    UPROPERTY(EditAnywhere, Category = "Constraints|Flatten")
-    bool bDisallowInFlattenBlend = false;     // forbid inside the smooth feather ring
-
-    // Inflate the forbidden zone if you want a safety margin (cm)
+    // Extra inflation (cm) applied to each half-extent of the core rectangle.
+    // 0 = exactly the platform size from the terrain.
     UPROPERTY(EditAnywhere, Category = "Constraints|Flatten", meta = (ClampMin = "0.0"))
-    float FlattenBlend = 0.f;               // expands the rectangle by this much
+    float FlattenCoreExtra = 0.f;
+
 
 };
 
