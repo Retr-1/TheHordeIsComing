@@ -1,5 +1,6 @@
 #include "ScatterSpawner.h"
 #include "NoiseTerrainActor.h"
+#include "Components/SceneComponent.h"
 #include "Engine/World.h"
 #include "Kismet/KismetMathLibrary.h"
 
@@ -26,6 +27,26 @@ void AScatterSpawner::ClearSpawned()
         }
     }
     SpawnedActors.Reset();
+
+    // also destroy any leftover children under the container (defensive)
+    if (SpawnContainer)
+    {
+        TArray<AActor*> Attached;
+        SpawnContainer->GetAttachedActors(Attached);
+        for (AActor* Child : Attached)
+        {
+#if WITH_EDITOR
+            if (Child) Child->Modify();
+#endif
+            if (Child) Child->Destroy();
+        }
+
+//#if WITH_EDITOR
+//        SpawnContainer->Modify();
+//#endif
+//        SpawnContainer->Destroy();
+//        SpawnContainer = nullptr;
+    }
 }
 
 void AScatterSpawner::Generate()
@@ -36,8 +57,6 @@ void AScatterSpawner::Generate()
         return;
     }
 
-    // Optional: clear previous
-    ClearSpawned();
 
     // Terrain extents in local space
     const float HalfW = Terrain->NumQuadsX * Terrain->GridSpacing * 0.5f;
@@ -57,6 +76,13 @@ void AScatterSpawner::Generate()
     }
 
     FRandomStream RNG(Seed);
+
+    // Make sure we have a container; reuse if it already exists
+    if (!EnsureSpawnContainer())
+    {
+        UE_LOG(LogTemp, Warning, TEXT("ScatterSpawner: Failed to create/reuse SpawnContainer."));
+        return;
+    }
 
     for (const FSpawnRequest& R : Requests)
     {
@@ -116,8 +142,24 @@ void AScatterSpawner::Generate()
             if (AActor* SpawnedActor = GetWorld()->SpawnActor<AActor>(R.ActorClass, T, P))
             {
                 SpawnedActors.Add(SpawnedActor);
+                SpawnedActor->SetActorScale3D(FVector(ScaleU));
                 Placed2D.Add(FVector2D(WorldOnPlane.X, WorldOnPlane.Y));
                 ++Spawned;
+
+                if (AActor* Parent = SpawnContainer)
+                {
+                    if (USceneComponent* ParentRoot = Parent->GetRootComponent())
+                    {
+                        const FAttachmentTransformRules Rules = FAttachmentTransformRules::KeepWorldTransform;
+                        SpawnedActor->AttachToComponent(ParentRoot, Rules);
+                    }
+                    else
+                    {
+                        UE_LOG(LogTemp, Warning, TEXT("SpawnContainer has no RootComponent; cannot attach %s"),
+                            *SpawnedActor->GetName());
+                    }
+                }
+
             }
         }
 
@@ -217,3 +259,44 @@ bool AScatterSpawner::PickRandomXY(FRandomStream& RNG, float& OutX, float& OutY)
     OutY = RNG.FRandRange(minY, maxY);
     return true;
 }
+
+
+
+AActor* AScatterSpawner::EnsureSpawnContainer()
+{
+    if (IsValid(SpawnContainer))
+    {
+        // Make sure it has a root
+        if (!SpawnContainer->GetRootComponent())
+        {
+            USceneComponent* Root = NewObject<USceneComponent>(SpawnContainer, TEXT("Root"));
+            Root->Mobility = EComponentMobility::Movable;
+            SpawnContainer->SetRootComponent(Root);
+            Root->RegisterComponent();
+            SpawnContainer->SetActorTransform(GetActorTransform());
+        }
+        return SpawnContainer;
+    }
+
+    FActorSpawnParameters Params;
+    Params.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+    Params.OverrideLevel = GetLevel();
+
+    SpawnContainer = GetWorld()->SpawnActor<AActor>(
+        AActor::StaticClass(), GetActorTransform(), Params);
+
+    if (SpawnContainer)
+    {
+        // Create a default root so children can attach
+        USceneComponent* Root = NewObject<USceneComponent>(SpawnContainer, TEXT("Root"));
+        Root->Mobility = EComponentMobility::Movable;
+        SpawnContainer->SetRootComponent(Root);
+        Root->RegisterComponent();
+
+#if WITH_EDITOR
+        SpawnContainer->SetActorLabel(FString::Printf(TEXT("SpawnContainer_%s"), *GetName()));
+#endif
+    }
+    return SpawnContainer;
+}
+

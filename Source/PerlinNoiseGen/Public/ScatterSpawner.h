@@ -68,6 +68,8 @@ struct FSpawnRequest
     float FlattenCoreExtra = 0.f;
 
 
+
+
 };
 
 UCLASS()
@@ -105,6 +107,11 @@ public:
 
     UFUNCTION(CallInEditor, Category = "Spawn")
     void ClearSpawned();
+
+    UPROPERTY(VisibleAnywhere, Transient, Category = "Runtime")
+    AActor* SpawnContainer = nullptr;
+
+    AActor* EnsureSpawnContainer(); // helper to create/reuse container
 
 protected:
     virtual void OnConstruction(const FTransform& Xform) override;
