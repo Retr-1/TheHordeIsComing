@@ -108,7 +108,7 @@ public:
     UFUNCTION(CallInEditor, Category = "Spawn")
     void ClearSpawned();
 
-    UPROPERTY(VisibleAnywhere, Transient, Category = "Runtime")
+    UPROPERTY(EditInstanceOnly, BlueprintReadWrite, Category = "Runtime", meta = (ExposeOnSpawn = "true"))
     AActor* SpawnContainer = nullptr;
 
     AActor* EnsureSpawnContainer(); // helper to create/reuse container
@@ -117,8 +117,6 @@ protected:
     virtual void OnConstruction(const FTransform& Xform) override;
 
 private:
-    UPROPERTY(Transient)
-    TArray<TWeakObjectPtr<AActor>> SpawnedActors;
 
     bool PickRandomXY(FRandomStream& RNG, float& OutX, float& OutY) const;
     bool AcceptByConstraints(const FSpawnRequest& R, float X, float Y, float& OutZ, FVector& OutNormal) const;

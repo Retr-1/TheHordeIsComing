@@ -16,36 +16,20 @@ void AScatterSpawner::OnConstruction(const FTransform& /*Xform*/)
 
 void AScatterSpawner::ClearSpawned()
 {
-    for (auto& W : SpawnedActors)
-    {
-        if (AActor* A = W.Get())
-        {
-#if WITH_EDITOR
-            A->Modify();
-#endif
-            A->Destroy();
-        }
-    }
-    SpawnedActors.Reset();
 
     // also destroy any leftover children under the container (defensive)
-    if (SpawnContainer)
+    if (IsValid(SpawnContainer))
     {
         TArray<AActor*> Attached;
         SpawnContainer->GetAttachedActors(Attached);
         for (AActor* Child : Attached)
         {
+            if (!IsValid(Child)) continue;
 #if WITH_EDITOR
             if (Child) Child->Modify();
 #endif
             if (Child) Child->Destroy();
         }
-
-//#if WITH_EDITOR
-//        SpawnContainer->Modify();
-//#endif
-//        SpawnContainer->Destroy();
-//        SpawnContainer = nullptr;
     }
 }
 
@@ -141,7 +125,6 @@ void AScatterSpawner::Generate()
 
             if (AActor* SpawnedActor = GetWorld()->SpawnActor<AActor>(R.ActorClass, T, P))
             {
-                SpawnedActors.Add(SpawnedActor);
                 SpawnedActor->SetActorScale3D(FVector(ScaleU));
                 Placed2D.Add(FVector2D(WorldOnPlane.X, WorldOnPlane.Y));
                 ++Spawned;
