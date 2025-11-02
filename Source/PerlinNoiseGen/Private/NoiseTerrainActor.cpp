@@ -67,6 +67,10 @@ void ANoiseTerrainActor::BuildMesh()
         BuildSlabSection(); // creates section 1, no collision
     }
 
+    // Flat skirt around map (no collision)
+    BuildSeabedRingSection();
+
+
     // Water last so it renders on top where visible
     if (bShowWater)
     {
@@ -270,43 +274,32 @@ void ANoiseTerrainActor::BuildSlabSection()
 
 void ANoiseTerrainActor::BuildWaterSection()
 {
-    // Terrain half extents in local space
-    const float HalfW = NumQuadsX * GridSpacing * 0.5f + WaterPadding;
-    const float HalfH = NumQuadsY * GridSpacing * 0.5f + WaterPadding;
+    // Extents much larger than terrain to push horizon away
+    const float HalfW = NumQuadsX * GridSpacing * 0.5f + WaterExtent;
+    const float HalfH = NumQuadsY * GridSpacing * 0.5f + WaterExtent;
 
     const float Z = WaterZ + WaterZOffset;
 
-    // Quad corners (CCW, +Z up), centered like your terrain
-    TArray<FVector> V;
-    V.Reserve(4);
-    V.Add(FVector(-HalfW, -HalfH, Z)); // BL
-    V.Add(FVector(+HalfW, -HalfH, Z)); // BR
-    V.Add(FVector(+HalfW, +HalfH, Z)); // TR
-    V.Add(FVector(-HalfW, +HalfH, Z)); // TL
+    TArray<FVector> V; V.Reserve(4);
+    V.Add(FVector(-HalfW, -HalfH, Z));
+    V.Add(FVector(+HalfW, -HalfH, Z));
+    V.Add(FVector(+HalfW, +HalfH, Z));
+    V.Add(FVector(-HalfW, +HalfH, Z));
 
-    TArray<int32> I = { 0, 2, 1, 0, 3, 2 };
-
-    // Up normals
+    TArray<int32> I = { 0,2,1, 0,3,2 };
     TArray<FVector> N; N.Init(FVector::UpVector, 4);
 
-    // UVs with tiling (0..WaterUVTile)
-    const float UMax = WaterUVTile;
-    const float VMax = WaterUVTile;
+    const float Tile = WaterUVTile * (HalfW + HalfH) / 100000.f; // simple scale with size
     TArray<FVector2D> UV; UV.Reserve(4);
     UV.Add(FVector2D(0.f, 0.f));
-    UV.Add(FVector2D(UMax, 0.f));
-    UV.Add(FVector2D(UMax, VMax));
-    UV.Add(FVector2D(0.f, VMax));
+    UV.Add(FVector2D(Tile, 0.f));
+    UV.Add(FVector2D(Tile, Tile));
+    UV.Add(FVector2D(0.f, Tile));
 
     TArray<FProcMeshTangent> T; T.Init(FProcMeshTangent(1, 0, 0), 4);
 
-    // Section 2, NO collision
-    ProcMesh->CreateMeshSection_LinearColor(
-        2, V, I, N, UV, TArray<FLinearColor>(), T, /*bCreateCollision=*/false);
-
+    ProcMesh->CreateMeshSection_LinearColor(2, V, I, N, UV, TArray<FLinearColor>(), T, /*bCreateCollision=*/false);
     if (WaterMaterial) { ProcMesh->SetMaterial(2, WaterMaterial); }
-
-    // Optional: hide shadows on a translucent surface (engine usually ignores anyway)
     ProcMesh->bCastDynamicShadow = false;
 }
 
@@ -463,4 +456,66 @@ FVector ANoiseTerrainActor::GetNormalAtWorldXY(float WorldX, float WorldY, bool 
     FVector N = FVector::CrossProduct(dY, dX);
     const double len2 = N.SizeSquared();
     return (len2 < 1e-12) ? FVector::UpVector : N / FMath::Sqrt(len2);
+}
+
+void ANoiseTerrainActor::BuildSeabedRingSection()
+{
+    // Inner rectangle = just outside the generated terrain (avoid z-fighting)
+    const float InnerHalfW = NumQuadsX * GridSpacing * 0.5f + 10.f;
+    const float InnerHalfH = NumQuadsY * GridSpacing * 0.5f + 10.f;
+
+    // Outer rectangle = extend to same distance as water
+    const float OuterHalfW = InnerHalfW + WaterExtent;
+    const float OuterHalfH = InnerHalfH + WaterExtent;
+
+    // Match the shoreline target depth so it visually continues under water
+    const float edgeTargetZ = WaterZ - FMath::Max(0.f, ShoreEdgeDepth);
+
+    // 8 verts: inner CCW (0..3), outer CCW (4..7)
+    TArray<FVector> V; V.Reserve(8);
+    V.Add(FVector(-InnerHalfW, -InnerHalfH, edgeTargetZ));
+    V.Add(FVector(+InnerHalfW, -InnerHalfH, edgeTargetZ));
+    V.Add(FVector(+InnerHalfW, +InnerHalfH, edgeTargetZ));
+    V.Add(FVector(-InnerHalfW, +InnerHalfH, edgeTargetZ));
+    V.Add(FVector(-OuterHalfW, -OuterHalfH, edgeTargetZ));
+    V.Add(FVector(+OuterHalfW, -OuterHalfH, edgeTargetZ));
+    V.Add(FVector(+OuterHalfW, +OuterHalfH, edgeTargetZ));
+    V.Add(FVector(-OuterHalfW, +OuterHalfH, edgeTargetZ));
+
+    // 4 belts around the inner rectangle (2 tris each)
+    TArray<int32> I; I.Reserve(24);
+    // new (flipped to face +Z)
+    I.Append({ 5,4,1, 1,4,0 }); // bottom
+    I.Append({ 6,5,2, 2,5,1 }); // right
+    I.Append({ 7,6,3, 3,6,2 }); // top
+    I.Append({ 4,7,0, 0,7,3 }); // left
+
+    TArray<FVector> N; N.Init(FVector::UpVector, 8);
+
+    // Simple UVs: tile roughly with size (you can tweak to your seabed material)
+    TArray<FVector2D> UV; UV.Init(FVector2D::ZeroVector, 8);
+    const float TileScale = (OuterHalfW + OuterHalfH) / 100000.f;
+    UV[0] = FVector2D(0.f, 0.f);
+    UV[1] = FVector2D(TileScale, 0.f);
+    UV[2] = FVector2D(TileScale, TileScale);
+    UV[3] = FVector2D(0.f, TileScale);
+    UV[4] = FVector2D(-TileScale, -TileScale);
+    UV[5] = FVector2D(+TileScale, -TileScale);
+    UV[6] = FVector2D(+TileScale, +TileScale);
+    UV[7] = FVector2D(-TileScale, +TileScale);
+
+    TArray<FProcMeshTangent> T; T.Init(FProcMeshTangent(1, 0, 0), 8);
+
+    // Section 3, NO collision
+    ProcMesh->CreateMeshSection_LinearColor(
+        3, V, I, N, UV, TArray<FLinearColor>(), T, /*bCreateCollision=*/false);
+
+    if (SeabedMaterial)
+    {
+        ProcMesh->SetMaterial(3, SeabedMaterial);
+    }
+    else if (TerrainMaterial)
+    {
+        ProcMesh->SetMaterial(3, TerrainMaterial);
+    }
 }

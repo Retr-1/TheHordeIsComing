@@ -168,11 +168,21 @@ public:
     FVector GetNormalAtWorldXY(float WorldX, float WorldY, bool bClampToBounds = true) const;
 
 
+    // Optional: separate water extent beyond terrain bounds
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Water")
+    float WaterExtent = 300000.f; // how far water quad extends past map (per side)
+
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Seabed")
+    UMaterialInterface* SeabedMaterial = nullptr;
+
+
 protected:
     virtual void OnConstruction(const FTransform& Transform) override;
 
 private:
     void BuildMesh();
+    void BuildSeabedRingSection();
 
     void GenerateGrid(
         TArray<FVector>& OutVertices,
