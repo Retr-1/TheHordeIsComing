@@ -147,7 +147,7 @@ public:
 
     // Rectangle mode: leave a flat band near the interior before sloping to the edge
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shoreline", meta = (ClampMin = "0"))
-    float ShoreInnerMargin = 3000.f;       // cm from interior where slope starts
+    float IslandWidth = 3000.f;       // cm from interior where slope starts
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shoreline", meta = (ClampMin = "1"))
     float ShoreFalloffWidth = 6000.f;      // cm width of slope band to the edge
