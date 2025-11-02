@@ -9,6 +9,13 @@ class UProceduralMeshComponent;
 struct FProcMeshTangent;
 class FPerlinNoise;
 
+UENUM(BlueprintType)
+enum class EShorelineMode : uint8
+{
+    RectAligned UMETA(DisplayName = "Rectangle (map edges)"),
+    Radial      UMETA(DisplayName = "Radial (island)")
+};
+
 UCLASS()
 class PERLINNOISEGEN_API ANoiseTerrainActor : public AActor
 {
@@ -129,6 +136,29 @@ public:
 
     UPROPERTY(EditAnywhere, Category = "Terrain|Water")
     UMaterialInterface* WaterMaterial = nullptr;
+
+
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shoreline")
+    bool bEnableShorelineFalloff = true;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shoreline")
+    EShorelineMode ShoreMode = EShorelineMode::RectAligned;
+
+    // Rectangle mode: leave a flat band near the interior before sloping to the edge
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shoreline", meta = (ClampMin = "0"))
+    float ShoreInnerMargin = 3000.f;       // cm from interior where slope starts
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shoreline", meta = (ClampMin = "1"))
+    float ShoreFalloffWidth = 6000.f;      // cm width of slope band to the edge
+
+    // Radial (island) mode: center radius; 0 = auto fit to min half-extent - InnerMargin
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shoreline", meta = (ClampMin = "0"))
+    float IslandRadius = 0.f;
+
+    // How deep the edge sinks below water at the very border
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shoreline")
+    float ShoreEdgeDepth = 300.f;          // cm (edge target = WaterZ - this)
 
     // --- Core height evaluators (no allocation, pure math) ---
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Terrain|Query")

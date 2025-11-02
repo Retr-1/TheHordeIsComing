@@ -335,6 +335,42 @@ float ANoiseTerrainActor::SampleHeightAtIndex(int32 ix, int32 iy, float LocalX, 
 
         Height = FMath::Lerp(Height, FlattenHeight, w);
     }
+    // --- Shoreline falloff: blend height toward underwater near map borders ---
+    if (bEnableShorelineFalloff)
+    {
+        // Terrain extents in local space
+        const float HalfW = NumQuadsX * GridSpacing * 0.5f;
+        const float HalfH = NumQuadsY * GridSpacing * 0.5f;
+
+        // Target Z at the very edge (slightly below water)
+        const float TargetEdgeZ = WaterZ - FMath::Max(0.f, ShoreEdgeDepth);
+
+        float w = 1.f; // 1 = keep terrain; 0 = force to TargetEdgeZ
+
+        if (ShoreMode == EShorelineMode::RectAligned)
+        {
+            // distance from current point to the closest map edge
+            const float dx = HalfW - FMath::Abs(LocalX);
+            const float dy = HalfH - FMath::Abs(LocalY);
+            const float distToEdge = FMath::Min(dx, dy);
+
+            // map [InnerMargin .. InnerMargin+FalloffWidth] -> [1 .. 0]
+            const float t = (distToEdge - ShoreInnerMargin) / FMath::Max(1.f, ShoreFalloffWidth);
+            w = Smoothstep01(t);
+        }
+        else // EShorelineMode::Radial
+        {
+            const float R = FMath::Sqrt(LocalX * LocalX + LocalY * LocalY);
+            const float AutoR0 = FMath::Max(0.f, FMath::Min(HalfW, HalfH) - ShoreInnerMargin);
+            const float R0 = (IslandRadius > 0.f) ? IslandRadius : AutoR0;
+
+            // map [R0 .. R0 + ShoreFalloffWidth] -> [1 .. 0]
+            const float t = (R0 - R) / FMath::Max(1.f, ShoreFalloffWidth);
+            w = Smoothstep01(t);
+        }
+
+        Height = FMath::Lerp(TargetEdgeZ, Height, w);
+    }
     return Height;
 }
 
