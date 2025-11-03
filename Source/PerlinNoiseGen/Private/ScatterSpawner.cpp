@@ -1,5 +1,6 @@
 #include "ScatterSpawner.h"
 #include "NoiseTerrainActor.h"
+#include "InstancedWorldActor.h" 
 #include "Components/SceneComponent.h"
 #include "Engine/World.h"
 #include "Kismet/KismetMathLibrary.h"
@@ -31,6 +32,10 @@ void AScatterSpawner::ClearSpawned()
             if (Child) Child->Destroy();
         }
     }
+
+    for (auto& R : Requests) {
+        if (R.Instancer) R.Instancer->ClearAll();
+    }
 }
 
 void AScatterSpawner::Generate()
@@ -42,24 +47,7 @@ void AScatterSpawner::Generate()
     }
 
 
-    // Terrain extents in local space
-    const float HalfW = Terrain->NumQuadsX * Terrain->GridSpacing * 0.5f;
-    const float HalfH = Terrain->NumQuadsY * Terrain->GridSpacing * 0.5f;
 
-    FVector2D LocMin(-HalfW, -HalfH);
-    FVector2D LocMax(+HalfW, +HalfH);
-
-    if (bUseRegion)
-    {
-        LocMin.X = FMath::Clamp(RegionMin_Local.X, -HalfW, +HalfW);
-        LocMin.Y = FMath::Clamp(RegionMin_Local.Y, -HalfH, +HalfH);
-        LocMax.X = FMath::Clamp(RegionMax_Local.X, -HalfW, +HalfW);
-        LocMax.Y = FMath::Clamp(RegionMax_Local.Y, -HalfH, +HalfH);
-        if (LocMax.X < LocMin.X) Swap(LocMax.X, LocMin.X);
-        if (LocMax.Y < LocMin.Y) Swap(LocMax.Y, LocMin.Y);
-    }
-
-    FRandomStream RNG(Seed);
 
     // Make sure we have a container; reuse if it already exists
     if (!EnsureSpawnContainer())
@@ -70,7 +58,39 @@ void AScatterSpawner::Generate()
 
     for (const FSpawnRequest& R : Requests)
     {
-        if (!R.ActorClass) continue;
+        if (!R.ActorClass && !R.Instancer) continue;
+        if (R.Count <= 0) continue;
+
+        // --- Per-request region (defaults to full terrain) ---
+        const float HalfW = Terrain->NumQuadsX * Terrain->GridSpacing * 0.5f;
+        const float HalfH = Terrain->NumQuadsY * Terrain->GridSpacing * 0.5f;
+
+        FVector2D LocMin(-HalfW, -HalfH);
+        FVector2D LocMax(+HalfW, +HalfH);
+
+        // If you still have a global region toggle, keep it only when the request doesn’t override:
+        if (bUseRegion && !R.bUseRegionOverride)
+        {
+            LocMin.X = FMath::Clamp(RegionMin_Local.X, -HalfW, +HalfW);
+            LocMin.Y = FMath::Clamp(RegionMin_Local.Y, -HalfH, +HalfH);
+            LocMax.X = FMath::Clamp(RegionMax_Local.X, -HalfW, +HalfW);
+            LocMax.Y = FMath::Clamp(RegionMax_Local.Y, -HalfH, +HalfH);
+            if (LocMax.X < LocMin.X) Swap(LocMax.X, LocMin.X);
+            if (LocMax.Y < LocMin.Y) Swap(LocMax.Y, LocMin.Y);
+        }
+
+        // Per-request override wins
+        if (R.bUseRegionOverride)
+        {
+            LocMin.X = FMath::Clamp(R.RegionMin_Local.X, -HalfW, +HalfW);
+            LocMin.Y = FMath::Clamp(R.RegionMin_Local.Y, -HalfH, +HalfH);
+            LocMax.X = FMath::Clamp(R.RegionMax_Local.X, -HalfW, +HalfW);
+            LocMax.Y = FMath::Clamp(R.RegionMax_Local.Y, -HalfH, +HalfH);
+            if (LocMax.X < LocMin.X) Swap(LocMax.X, LocMin.X);
+            if (LocMax.Y < LocMin.Y) Swap(LocMax.Y, LocMin.Y);
+        }
+
+        FRandomStream RNG(Seed + R.SeedOffset);
 
         TArray<FVector2D> Placed2D;
         Placed2D.Reserve(R.Count);
@@ -119,35 +139,44 @@ void AScatterSpawner::Generate()
             T.SetRotation(FinalQuat);
             T.SetScale3D(FVector(ScaleU));
 
-
-            FActorSpawnParameters P;
-            P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
-
-            if (AActor* SpawnedActor = GetWorld()->SpawnActor<AActor>(R.ActorClass, T, P))
+            if (R.Instancer)   // ---- Instanced path ----
             {
-                SpawnedActor->SetActorScale3D(FVector(ScaleU));
+                R.Instancer->AddInstance(R.InstancerGroupIndex, T, /*VariantIndex*/ -1);
+
                 Placed2D.Add(FVector2D(WorldOnPlane.X, WorldOnPlane.Y));
                 ++Spawned;
+            }
+            else
+            {
+                FActorSpawnParameters P;
+                P.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
 
-                if (AActor* Parent = SpawnContainer)
+                if (AActor* SpawnedActor = GetWorld()->SpawnActor<AActor>(R.ActorClass, T, P))
                 {
-                    if (USceneComponent* ParentRoot = Parent->GetRootComponent())
-                    {
-                        const FAttachmentTransformRules Rules = FAttachmentTransformRules::KeepWorldTransform;
-                        SpawnedActor->AttachToComponent(ParentRoot, Rules);
-                    }
-                    else
-                    {
-                        UE_LOG(LogTemp, Warning, TEXT("SpawnContainer has no RootComponent; cannot attach %s"),
-                            *SpawnedActor->GetName());
-                    }
-                }
+                    SpawnedActor->SetActorScale3D(FVector(ScaleU));
+                    Placed2D.Add(FVector2D(WorldOnPlane.X, WorldOnPlane.Y));
+                    ++Spawned;
 
+                    if (AActor* Parent = SpawnContainer)
+                    {
+                        if (USceneComponent* ParentRoot = Parent->GetRootComponent())
+                        {
+                            const FAttachmentTransformRules Rules = FAttachmentTransformRules::KeepWorldTransform;
+                            SpawnedActor->AttachToComponent(ParentRoot, Rules);
+                        }
+                        else
+                        {
+                            UE_LOG(LogTemp, Warning, TEXT("SpawnContainer has no RootComponent; cannot attach %s"),
+                                *SpawnedActor->GetName());
+                        }
+                    }
+
+                }
             }
         }
 
-        UE_LOG(LogTemp, Log, TEXT("ScatterSpawner: %d/%d spawned for %s (tries=%d)"),
-            Spawned, R.Count, *R.ActorClass->GetName(), Tries);
+        UE_LOG(LogTemp, Log, TEXT("ScatterSpawner: %d/%d spawned for (tries=%d)"),
+            Spawned, R.Count, Tries);
     }
 }
 
@@ -194,7 +223,6 @@ bool AScatterSpawner::AcceptByConstraints(const FSpawnRequest& R, float X, float
 
     // Always compute normal (we use it for alignment)
     OutNormal = Terrain->GetNormalAtWorldXY(X, Y, /*bClamp*/true).GetSafeNormal();
-    OutNormal.Normalize();
     if (OutNormal.Z < 0.f)
     {
         OutNormal *= -1.f;  // force up-facing
