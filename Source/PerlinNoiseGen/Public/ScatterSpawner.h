@@ -87,7 +87,10 @@ struct FSpawnRequest
     UPROPERTY(EditAnywhere, Category = "Advanced")
     int32 SeedOffset = 0;
 
-
+    // Which local axis of the mesh should point "up" after alignment?
+// Default assumes Z-up meshes. If your trunk runs along +X, set (1,0,0). For +Y, set (0,1,0).
+    UPROPERTY(EditAnywhere, Category = "Placement")
+    FVector LocalUp = FVector::UpVector;
 
 };
 

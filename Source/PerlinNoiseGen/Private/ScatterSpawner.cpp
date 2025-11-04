@@ -129,9 +129,15 @@ void AScatterSpawner::Generate()
             // Lift along the normal to avoid clipping on slopes
             const FVector Loc = FVector(WorldOnPlane.X, WorldOnPlane.Y, z) + N * R.SurfaceOffset;
 
-            // Build rotation: align actor's +Z to the surface normal, then spin around that normal
-            const FQuat AlignQuat = FRotationMatrix::MakeFromZ(N).ToQuat();
+            // Build rotation:
+            // 1) Rotate mesh's LocalUp to the ground normal N
+            const FVector MeshLocalUp = R.LocalUp.GetSafeNormal();
+            const FQuat AlignQuat = FQuat::FindBetweenNormals(MeshLocalUp, N);
+
+            // 2) Spin around that normal for random yaw
             const FQuat SpinQuat = FQuat(N, FMath::DegreesToRadians(SpinDeg));
+
+            // Final rotation
             const FQuat FinalQuat = SpinQuat * AlignQuat;
 
             FTransform T;
