@@ -67,8 +67,30 @@ struct FSpawnRequest
     UPROPERTY(EditAnywhere, Category = "Constraints|Flatten", meta = (ClampMin = "0.0"))
     float FlattenCoreExtra = 0.f;
 
+    // ScatterSpawner.h (inside FSpawnRequest)
+    UPROPERTY(EditAnywhere, Category = "Spawn|Instanced")
+    class AInstancedWorldActor* Instancer = nullptr;
 
+    UPROPERTY(EditAnywhere, Category = "Spawn|Instanced", meta = (ClampMin = "0"))
+    int32 InstancerGroupIndex = 0; // which group to add into (Trees=0, Rocks=1, …)
 
+    // ScatterSpawner.h (inside FSpawnRequest)
+    UPROPERTY(EditAnywhere, Category = "Region")
+    bool bUseRegionOverride = false;
+
+    UPROPERTY(EditAnywhere, Category = "Region", meta = (EditCondition = "bUseRegionOverride"))
+    FVector2D RegionMin_Local = FVector2D(-10000, -10000);
+
+    UPROPERTY(EditAnywhere, Category = "Region", meta = (EditCondition = "bUseRegionOverride"))
+    FVector2D RegionMax_Local = FVector2D(10000, 10000);
+
+    UPROPERTY(EditAnywhere, Category = "Advanced")
+    int32 SeedOffset = 0;
+
+    // Which local axis of the mesh should point "up" after alignment?
+// Default assumes Z-up meshes. If your trunk runs along +X, set (1,0,0). For +Y, set (0,1,0).
+    UPROPERTY(EditAnywhere, Category = "Placement")
+    FVector LocalUp = FVector::UpVector;
 
 };
 
