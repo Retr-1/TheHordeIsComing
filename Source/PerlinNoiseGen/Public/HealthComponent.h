@@ -32,6 +32,12 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Health")
     void Damage(float Amount);
 
+    UFUNCTION(BlueprintPure, Category = "Health")
+    float GetCurrentHealth() const { return CurrentHealth; }
+
+    UFUNCTION(BlueprintPure, Category = "Health")
+    float GetMaxHealth() const { return MaxHealth; }
+
 protected:
     virtual void BeginPlay() override;
 
