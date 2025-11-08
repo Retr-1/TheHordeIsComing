@@ -54,8 +54,10 @@ void AEnemyCharacter::UpdateHealthBar()
 
     if (UUserWidget* UW = HealthBarWidgetComp->GetUserWidgetObject())
     {
+        UE_LOG(LogTemp, Warning, TEXT("Getting widget health: %f"), Health->GetCurrentHealth());
         if (UHealthBarWidget* HB = Cast<UHealthBarWidget>(UW))
         {
+            UE_LOG(LogTemp, Warning, TEXT("Current health: %f"), Health->GetCurrentHealth() / Health->GetMaxHealth());
             const float P = (Health && Health->GetMaxHealth() > 0.f)
                 ? Health->GetCurrentHealth() / Health->GetMaxHealth()
                 : 0.f;

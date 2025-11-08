@@ -40,6 +40,9 @@ void UHealthComponent::HandleAnyDamage(AActor*, float Damage, const UDamageType*
 void UHealthComponent::HandlePointDamage(AActor*, float Damage, AController*, FVector, UPrimitiveComponent*,
     FName, FVector, const UDamageType*, AActor*)
 {
+    // in HealthComponent.cpp inside HandlePointDamage
+    UE_LOG(LogTemp, Warning, TEXT("HITTTT!!!!!"));
+
     if (Damage > 0.f) ApplyDamageInternal(Damage);
 }
 
