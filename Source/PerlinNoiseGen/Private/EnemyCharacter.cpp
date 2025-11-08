@@ -4,6 +4,8 @@
 #include "HealthBarWidget.h"
 #include "Components/WidgetComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Kismet/KismetMathLibrary.h"
+#include "GameFramework/PlayerController.h"
 #include "Components/CapsuleComponent.h"
 
 AEnemyCharacter::AEnemyCharacter()
@@ -76,4 +78,22 @@ void AEnemyCharacter::OnZeroHealth()
     // Hide the bar right away (optional)
     if (HealthBarWidgetComp) HealthBarWidgetComp->SetVisibility(false);
     Destroy();
+}
+
+void AEnemyCharacter::Tick(float DeltaSeconds)
+{
+    Super::Tick(DeltaSeconds);
+
+    if (!HealthBarWidgetComp) return;
+    if (HealthBarWidgetComp->GetWidgetSpace() != EWidgetSpace::World) return;
+
+    if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+    {
+        const FVector CamLoc = PC->PlayerCameraManager->GetCameraLocation();
+        const FVector WidgetLoc = HealthBarWidgetComp->GetComponentLocation();
+        FRotator LookAt = UKismetMathLibrary::FindLookAtRotation(WidgetLoc, CamLoc);
+
+        LookAt.Pitch = 0.f; LookAt.Roll = 0.f; // keep it horizontal
+        HealthBarWidgetComp->SetWorldRotation(LookAt);
+    }
 }
