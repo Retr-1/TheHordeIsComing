@@ -14,7 +14,6 @@ void UHealthComponent::BeginPlay()
     if (AActor* Owner = GetOwner())
     {
         Owner->OnTakeAnyDamage.AddDynamic(this, &UHealthComponent::HandleAnyDamage);
-        Owner->OnTakePointDamage.AddDynamic(this, &UHealthComponent::HandlePointDamage);
     }
 }
 
@@ -34,15 +33,6 @@ void UHealthComponent::Damage(float Amount)
 
 void UHealthComponent::HandleAnyDamage(AActor*, float Damage, const UDamageType*, AController*, AActor*)
 {
-    if (Damage > 0.f) ApplyDamageInternal(Damage);
-}
-
-void UHealthComponent::HandlePointDamage(AActor*, float Damage, AController*, FVector, UPrimitiveComponent*,
-    FName, FVector, const UDamageType*, AActor*)
-{
-    // in HealthComponent.cpp inside HandlePointDamage
-    UE_LOG(LogTemp, Warning, TEXT("HITTTT!!!!!"));
-
     if (Damage > 0.f) ApplyDamageInternal(Damage);
 }
 

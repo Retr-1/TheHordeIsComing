@@ -47,11 +47,5 @@ private:
         const class UDamageType* DamageType,
         class AController* InstigatedBy, AActor* DamageCauser);
 
-    UFUNCTION()
-    void HandlePointDamage(AActor* DamagedActor, float Damage, AController* InstigatedBy,
-        FVector HitLocation, class UPrimitiveComponent* FHitComponent,
-        FName BoneName, FVector ShotFromDirection,
-        const class UDamageType* DamageType, AActor* DamageCauser);
-
     void ApplyDamageInternal(float Amount);
 };

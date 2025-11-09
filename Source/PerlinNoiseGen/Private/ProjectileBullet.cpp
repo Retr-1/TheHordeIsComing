@@ -22,10 +22,9 @@ AProjectileBullet::AProjectileBullet()
     Collision->SetCollisionResponseToChannel(ECC_Pawn, ECR_Block);
 
     Collision->SetNotifyRigidBodyCollision(true);
-    Collision->SetGenerateOverlapEvents(true);
+    Collision->SetGenerateOverlapEvents(false);
 
     Collision->OnComponentHit.AddDynamic(this, &AProjectileBullet::OnHit);
-    Collision->OnComponentBeginOverlap.AddDynamic(this, &AProjectileBullet::OnOverlap);
 
     // --- Movement ---
     Movement = CreateDefaultSubobject<UProjectileMovementComponent>(TEXT("Movement"));
@@ -59,14 +58,6 @@ void AProjectileBullet::OnHit(UPrimitiveComponent* /*HitComp*/, AActor* OtherAct
     const FHitResult& Hit)
 {
     ApplyDamageAndDie(Hit, OtherActor);
-}
-
-void AProjectileBullet::OnOverlap(UPrimitiveComponent* /*OverlappedComp*/, AActor* OtherActor,
-    UPrimitiveComponent* /*OtherComp*/, int32 /*OtherBodyIndex*/,
-    bool /*bFromSweep*/, const FHitResult& SweepResult)
-{
-    // In case something important is set to overlap instead of block
-    ApplyDamageAndDie(SweepResult, OtherActor);
 }
 
 void AProjectileBullet::OnProjectileStop(const FHitResult& ImpactResult)
