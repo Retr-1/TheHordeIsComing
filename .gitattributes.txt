@@ -1,0 +1,3 @@
+Content/Blueprint/*.uasset lockable
+Content/Blueprint/*.umap   lockable
+Content/PerlinNoise.umap
