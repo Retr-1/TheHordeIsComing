@@ -19,6 +19,8 @@ void UMapManagerComponent::BeginPlay()
 {
     Super::BeginPlay();
 
+
+
     MapGen = NewObject<UMapTextureGenerator>(this);
 
     EnsureTerrainFound();
@@ -103,11 +105,11 @@ void UMapManagerComponent::ApplyInputMode(bool bShow)
 
     if (bShow)
     {
-        PC->bShowMouseCursor = true;
+        PC->bShowMouseCursor = false;
 
         if (bUIOnlyWhileMapOpen && MapWidget)
         {
-            FInputModeUIOnly Mode;
+            FInputModeGameAndUI Mode;
             Mode.SetWidgetToFocus(MapWidget->TakeWidget());
             PC->SetInputMode(Mode);
         }
@@ -123,6 +125,7 @@ void UMapManagerComponent::ApplyInputMode(bool bShow)
         }
     }
 }
+
 
 void UMapManagerComponent::RebuildMap()
 {
