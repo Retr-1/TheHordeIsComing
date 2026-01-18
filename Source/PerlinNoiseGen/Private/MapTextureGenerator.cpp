@@ -1,3 +1,6 @@
+// ===============================
+// MapTextureGenerator.cpp
+// ===============================
 #include "MapTextureGenerator.h"
 #include "Engine/Texture2D.h"
 #include "NoiseTerrainActor.h"
@@ -82,6 +85,7 @@ void UMapTextureGenerator::RasterizeMarchingSquares(
             const FVector2D bottom = (pd + pc) * 0.5f;
             const FVector2D left = (pa + pd) * 0.5f;
 
+            // Standard marching squares segment table (binary, midpoint edges)
             switch (idx)
             {
             case 1:  DrawLine(Pixels, W, H, left, bottom, LineColor, Thickness); break;
@@ -135,15 +139,19 @@ UTexture2D* UMapTextureGenerator::GenerateMapTexture(ANoiseTerrainActor* Terrain
 
     const int32 W = Settings.MapWidth;
     const int32 H = Settings.MapHeight;
+    if (W <= 1 || H <= 1) return nullptr;
 
     const float HalfW = Terrain->NumQuadsX * Terrain->GridSpacing * 0.5f;
     const float HalfH = Terrain->NumQuadsY * Terrain->GridSpacing * 0.5f;
 
     const float WaterZ = Terrain->WaterZ;
+    const float PeakZ = Settings.PeakZ;
 
-    // 1) Base fill per pixel (land/water)
+    // 1) Base fill per pixel (water / mountain / peaks)
     TArray<FColor> Pixels;
     Pixels.SetNum(W * H);
+
+    const FTransform TerrainT = Terrain->GetActorTransform();
 
     for (int32 py = 0; py < H; ++py)
     {
@@ -156,21 +164,36 @@ UTexture2D* UMapTextureGenerator::GenerateMapTexture(ANoiseTerrainActor* Terrain
             const float LocalX = FMath::Lerp(-HalfW, +HalfW, u);
 
             const FVector LocalPos(LocalX, LocalY, 0.f);
-            const FVector WorldPos = Terrain->GetActorTransform().TransformPosition(LocalPos);
+            const FVector WorldPos = TerrainT.TransformPosition(LocalPos);
 
             const float Z = Terrain->GetHeightAtWorldXY(WorldPos.X, WorldPos.Y, true);
-            Pixels[py * W + px] = (Z >= WaterZ) ? Settings.LandColor : Settings.WaterColor;
+
+            FColor C;
+            if (Z < WaterZ)
+            {
+                C = Settings.WaterColor;
+            }
+            else if (Z < PeakZ)
+            {
+                C = Settings.MountainColor;
+            }
+            else
+            {
+                C = Settings.PeakColor;
+            }
+
+            Pixels[py * W + px] = C;
         }
     }
 
-    // 2) Boolean field for marching squares (coarser)
-    const int32 CellsX = Settings.CellsX;
-    const int32 CellsY = Settings.CellsY;
+    // 2) Boolean field for marching squares (shoreline at WaterZ)
+    const int32 CellsX = FMath::Max(1, Settings.CellsX);
+    const int32 CellsY = FMath::Max(1, Settings.CellsY);
     const int32 FX = CellsX + 1;
     const int32 FY = CellsY + 1;
 
-    TArray<uint8> Field;
-    Field.SetNum(FX * FY);
+    TArray<uint8> ShoreField;
+    ShoreField.SetNum(FX * FY);
 
     for (int32 sy = 0; sy < FY; ++sy)
     {
@@ -183,24 +206,57 @@ UTexture2D* UMapTextureGenerator::GenerateMapTexture(ANoiseTerrainActor* Terrain
             const float LocalX = FMath::Lerp(-HalfW, +HalfW, u);
 
             const FVector LocalPos(LocalX, LocalY, 0.f);
-            const FVector WorldPos = Terrain->GetActorTransform().TransformPosition(LocalPos);
+            const FVector WorldPos = TerrainT.TransformPosition(LocalPos);
 
             const float Z = Terrain->GetHeightAtWorldXY(WorldPos.X, WorldPos.Y, true);
-            Field[sy * FX + sx] = (Z >= WaterZ) ? 1 : 0;
+            ShoreField[sy * FX + sx] = (Z >= WaterZ) ? 1 : 0;
         }
     }
 
-    // 3) Draw shoreline
-    RasterizeMarchingSquares(Pixels, W, H, Field, FX, FY, Settings.ShorelineColor, Settings.LineThickness);
+    // 3) Draw shoreline contour
+    RasterizeMarchingSquares(Pixels, W, H, ShoreField, FX, FY, Settings.ShorelineColor, Settings.LineThickness);
 
-    // 4) Upload to transient texture
+    // 4) Optional second contour: peak boundary at PeakZ
+    if (Settings.bDrawPeakContour)
+    {
+        TArray<uint8> PeakField;
+        PeakField.SetNum(FX * FY);
+
+        for (int32 sy = 0; sy < FY; ++sy)
+        {
+            const float v = (float)sy / (float)(FY - 1);
+            const float LocalY = FMath::Lerp(-HalfH, +HalfH, v);
+
+            for (int32 sx = 0; sx < FX; ++sx)
+            {
+                const float u = (float)sx / (float)(FX - 1);
+                const float LocalX = FMath::Lerp(-HalfW, +HalfW, u);
+
+                const FVector LocalPos(LocalX, LocalY, 0.f);
+                const FVector WorldPos = TerrainT.TransformPosition(LocalPos);
+
+                const float Z = Terrain->GetHeightAtWorldXY(WorldPos.X, WorldPos.Y, true);
+                PeakField[sy * FX + sx] = (Z >= PeakZ) ? 1 : 0;
+            }
+        }
+
+        RasterizeMarchingSquares(Pixels, W, H, PeakField, FX, FY, Settings.PeakContourColor, Settings.LineThickness);
+    }
+
+    // 5) Upload to transient texture
     UTexture2D* Tex = UTexture2D::CreateTransient(W, H, PF_B8G8R8A8);
     if (!Tex) return nullptr;
 
     Tex->MipGenSettings = TMGS_NoMipmaps;
-    Tex->CompressionSettings = TC_VectorDisplacementmap; // crisp
+    Tex->CompressionSettings = TC_VectorDisplacementmap; // crisp, no color artifacts
     Tex->SRGB = true;
     Tex->NeverStream = true;
+
+    // NOTE: CreateTransient already creates PlatformData in UE5; still check safety.
+    if (!Tex->GetPlatformData() || Tex->GetPlatformData()->Mips.Num() == 0)
+    {
+        return Tex;
+    }
 
     void* TextureData = Tex->GetPlatformData()->Mips[0].BulkData.Lock(LOCK_READ_WRITE);
     FMemory::Memcpy(TextureData, Pixels.GetData(), Pixels.Num() * sizeof(FColor));

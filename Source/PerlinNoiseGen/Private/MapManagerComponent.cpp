@@ -167,6 +167,7 @@ void UMapManagerComponent::HideMap()
 
 void UMapManagerComponent::ToggleMap()
 {
+    UE_LOG(LogTemp, Warning, TEXT("Hello World"));
     if (bMapVisible) HideMap();
     else ShowMap();
 }
