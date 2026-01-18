@@ -8,7 +8,7 @@ public class PerlinNoiseGen : ModuleRules
 	{
 		PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
 	
-		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "ProceduralMeshComponent", "AIModule", "NavigationSystem" });
+		PublicDependencyModuleNames.AddRange(new string[] { "Core", "CoreUObject", "Engine", "InputCore", "ProceduralMeshComponent", "AIModule", "NavigationSystem", "UMG", "Slate", "SlateCore" });
 
 		PrivateDependencyModuleNames.AddRange(new string[] {  });
 
