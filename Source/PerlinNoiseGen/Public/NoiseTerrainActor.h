@@ -138,6 +138,12 @@ public:
     UMaterialInterface* WaterMaterial = nullptr;
 
 
+    UPROPERTY(EditAnywhere, Category = "Terrain|Material")
+    float GrassTop = 300.f;
+
+    UPROPERTY(EditAnywhere, Category = "Terrain|Material")
+    float RockTop = 3000.f;               
+
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Shoreline")
     bool bEnableShorelineFalloff = true;
@@ -176,6 +182,8 @@ public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Seabed")
     UMaterialInterface* SeabedMaterial = nullptr;
 
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Terrain|Query")
+    float HeightAtLocalXY(float LocalX, float LocalY, bool bClampToBounds = true) const;
 
 protected:
     virtual void OnConstruction(const FTransform& Transform) override;
@@ -194,9 +202,6 @@ private:
 
     void BuildSlabSection();
     void BuildWaterSection();
-
-    // Continuous evaluator in *local/actor* XY (bilinear over index-space samples)
-    float HeightAtLocalXY(float LocalX, float LocalY, bool bClampToBounds = true) const;
 
     // Fast per-vertex sample at integer grid indices (uses your index-space noise and flatten)
     float SampleHeightAtIndex(int32 ix, int32 iy, float LocalX, float LocalY) const;

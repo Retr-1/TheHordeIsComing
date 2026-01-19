@@ -1,6 +1,3 @@
-// ===============================
-// MapTextureGenerator.h
-// ===============================
 #pragma once
 
 #include "CoreMinimal.h"
@@ -15,47 +12,33 @@ struct FMapGenSettings
 {
     GENERATED_BODY()
 
-    // Final texture resolution
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Resolution")
+    // Output texture resolution
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Resolution", meta = (ClampMin = "16", UIMin = "16"))
     int32 MapWidth = 512;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Resolution")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Resolution", meta = (ClampMin = "16", UIMin = "16"))
     int32 MapHeight = 512;
 
-    // Marching squares resolution (cells). Field is (CellsX+1)x(CellsY+1).
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Resolution")
-    int32 CellsX = 256;
+    // Optional: speed-up for big textures (uses multicore)
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Performance")
+    bool bUseParallelFor = true;
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Resolution")
-    int32 CellsY = 256;
-
-    // Contour line thickness in pixels
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Contours", meta = (ClampMin = "1", UIMin = "1"))
-    int32 LineThickness = 2;
-
-    // Second height threshold: snow/peaks start at this height (Z)
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Thresholds")
-    float PeakZ = 1200.f;
-
-    // Base colors
+    // Colors (you asked for water/grass/rock/peaks using actor thresholds)
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Colors")
-    FColor WaterColor = FColor(25, 60, 160, 255);      // blue
+    FColor WaterColor = FColor(25, 60, 160, 255);
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Colors")
-    FColor MountainColor = FColor(130, 130, 130, 255); // grey
+    FColor GrassColor = FColor(40, 110, 45, 255);
 
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Colors")
-    FColor PeakColor = FColor(245, 245, 245, 255);     // white
+    FColor RockColor = FColor(130, 130, 130, 255);
 
-    // Contours
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Contours")
-    FColor ShorelineColor = FColor(230, 230, 230, 255);
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Colors")
+    FColor PeakColor = FColor(245, 245, 245, 255);
 
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Contours")
-    bool bDrawPeakContour = false;
-
-    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Contours")
-    FColor PeakContourColor = FColor(255, 255, 255, 255);
+    // If you want slightly nicer band edges without extra sampling
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map|Style", meta = (ClampMin = "0", UIMin = "0"))
+    int32 BandDitherStrength = 0; // 0 = off (fastest)
 };
 
 UCLASS(BlueprintType)
@@ -64,23 +47,15 @@ class PERLINNOISEGEN_API UMapTextureGenerator : public UObject
     GENERATED_BODY()
 
 public:
-    // Generates and returns a transient texture (PF_B8G8R8A8)
+    // Generates a transient PF_B8G8R8A8 texture using only per-pixel sampling (no marching squares)
     UFUNCTION(BlueprintCallable, Category = "Map")
     UTexture2D* GenerateMapTexture(ANoiseTerrainActor* Terrain, const FMapGenSettings& Settings);
 
-    // World XY -> normalized UV in [0..1] relative to terrain bounds (centered)
+    // World==Local in your game (terrain at 0,0,0). This returns normalized UV on the map.
     UFUNCTION(BlueprintCallable, Category = "Map")
-    bool WorldToMapUV(const ANoiseTerrainActor* Terrain, float WorldX, float WorldY, float& OutU, float& OutV) const;
+    bool WorldToMapUV_LocalTerrain(const ANoiseTerrainActor* Terrain, float WorldX, float WorldY, float& OutU, float& OutV) const;
 
 private:
-    void PutPixelClamped(TArray<FColor>& Pixels, int32 W, int32 H, int32 X, int32 Y, const FColor& Color);
-    void DrawLine(TArray<FColor>& Pixels, int32 W, int32 H, FVector2D A, FVector2D B, const FColor& Color, int32 Thickness);
-
-    void RasterizeMarchingSquares(
-        TArray<FColor>& Pixels, int32 W, int32 H,
-        const TArray<uint8>& Field, int32 FX, int32 FY,
-        const FColor& LineColor, int32 Thickness
-    );
-
-    FORCEINLINE int32 FieldIdx(int32 X, int32 Y, int32 FX) const { return Y * FX + X; }
+    FORCEINLINE int32 PixelIndex(int32 X, int32 Y, int32 W) const { return Y * W + X; }
+    static uint8 Hash8(int32 x, int32 y);
 };
