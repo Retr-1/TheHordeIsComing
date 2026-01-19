@@ -5,7 +5,6 @@
 #include "MapWidget.generated.h"
 
 class UImage;
-class UTexture2D;
 
 UCLASS()
 class PERLINNOISEGEN_API UMapWidget : public UUserWidget
@@ -17,13 +16,10 @@ public:
     void SetMapTexture(UTexture2D* Texture);
 
     UFUNCTION(BlueprintCallable, Category = "Map")
-    void SetArrowYawOffset(float Degrees) { ArrowYawOffset = Degrees; }
+    void UpdatePlayerArrowTransform(float YawDegrees, float U, float V);
 
     UFUNCTION(BlueprintCallable, Category = "Map")
-    void UpdatePlayerArrow(float PawnYawDegrees);
-
-    UFUNCTION(BlueprintCallable, Category = "Map")
-    void UpdatePlayerArrowTransform(float PawnYawDegrees, float U, float V);
+    void SetArrowYawOffset(float InOffset) { ArrowYawOffset = InOffset; }
 
 protected:
     virtual void NativeConstruct() override;
@@ -36,6 +32,6 @@ public:
     UImage* PlayerArrow = nullptr;
 
 private:
-    FVector2D MapPixelSize = FVector2D(512, 512);
+    FVector2D MapPixelSize = FVector2D(512.f, 512.f);
     float ArrowYawOffset = 0.f;
 };

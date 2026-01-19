@@ -61,13 +61,10 @@ void UMapManagerComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
     const float Yaw = P->GetActorRotation().Yaw;
 
     float U, V;
-    if (MapGen->WorldToMapUV_LocalTerrain(TerrainActor, P->GetActorLocation().X, P->GetActorLocation().Y, U, V))
+    if (MapGen && TerrainActor && PC && P &&
+        MapGen->WorldToMapUV(TerrainActor, P->GetActorLocation().X, P->GetActorLocation().Y, U, V))
     {
-        MapWidget->UpdatePlayerArrowTransform(Yaw, U, V);
-    }
-    else
-    {
-        MapWidget->UpdatePlayerArrow(Yaw);
+        MapWidget->UpdatePlayerArrowTransform(P->GetActorRotation().Yaw, U, V);
     }
 }
 

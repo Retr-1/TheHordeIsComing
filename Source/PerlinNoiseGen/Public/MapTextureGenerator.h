@@ -51,9 +51,9 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Map")
     UTexture2D* GenerateMapTexture(ANoiseTerrainActor* Terrain, const FMapGenSettings& Settings);
 
-    // World==Local in your game (terrain at 0,0,0). This returns normalized UV on the map.
     UFUNCTION(BlueprintCallable, Category = "Map")
-    bool WorldToMapUV_LocalTerrain(const ANoiseTerrainActor* Terrain, float WorldX, float WorldY, float& OutU, float& OutV) const;
+    bool WorldToMapUV(const ANoiseTerrainActor* Terrain, float WorldX, float WorldY, float& OutU, float& OutV) const;
+
 
 private:
     FORCEINLINE int32 PixelIndex(int32 X, int32 Y, int32 W) const { return Y * W + X; }

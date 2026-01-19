@@ -13,7 +13,7 @@ uint8 UMapTextureGenerator::Hash8(int32 x, int32 y)
     return (uint8)(h & 0xFFu);
 }
 
-bool UMapTextureGenerator::WorldToMapUV_LocalTerrain(const ANoiseTerrainActor* Terrain, float WorldX, float WorldY, float& OutU, float& OutV) const
+bool UMapTextureGenerator::WorldToMapUV(const ANoiseTerrainActor* Terrain, float WorldX, float WorldY, float& OutU, float& OutV) const
 {
     if (!Terrain) return false;
 
@@ -21,17 +21,17 @@ bool UMapTextureGenerator::WorldToMapUV_LocalTerrain(const ANoiseTerrainActor* T
     const float HalfH = Terrain->NumQuadsY * Terrain->GridSpacing * 0.5f;
     if (HalfW <= 0.f || HalfH <= 0.f) return false;
 
-    // Terrain is centered at origin => world == local (your assumption)
-    const float LocalX = WorldX;
-    const float LocalY = WorldY;
+    const FVector World(WorldX, WorldY, 0.f);
+    const FVector Local = Terrain->GetActorTransform().InverseTransformPosition(World);
 
-    OutU = (LocalX + HalfW) / (2.f * HalfW);
-    OutV = (LocalY + HalfH) / (2.f * HalfH);
+    OutU = (Local.X + HalfW) / (2.f * HalfW);
+    OutV = (Local.Y + HalfH) / (2.f * HalfH);
 
     OutU = FMath::Clamp(OutU, 0.f, 1.f);
     OutV = FMath::Clamp(OutV, 0.f, 1.f);
     return true;
 }
+
 
 UTexture2D* UMapTextureGenerator::GenerateMapTexture(ANoiseTerrainActor* Terrain, const FMapGenSettings& Settings)
 {
@@ -96,8 +96,6 @@ UTexture2D* UMapTextureGenerator::GenerateMapTexture(ANoiseTerrainActor* Terrain
             for (int32 px = 0; px < W; ++px)
             {
                 const float LocalX = LocalXs[px];
-
-                // **Fast cached bilinear sample** (this is why we exposed GetHeightAtLocalXY)
                 const float Z = Terrain->HeightAtLocalXY(LocalX, LocalY, /*bClampToBounds=*/true);
 
                 Pixels[RowBase + px] = ShadeHeight(Z, px, py);
