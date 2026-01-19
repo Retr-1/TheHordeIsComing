@@ -1,56 +1,65 @@
+// ===============================
+// MapWidget.cpp
+// ===============================
 #include "MapWidget.h"
 
 #include "Components/Image.h"
-#include "Engine/Texture2D.h"
-#include "Blueprint/WidgetLayoutLibrary.h"
 #include "Components/CanvasPanelSlot.h"
+#include "Engine/Texture2D.h"
 
 void UMapWidget::NativeConstruct()
 {
     Super::NativeConstruct();
 
-    // Make sure the arrow rotates around its center
+    // Rotate around center so the arrow spins properly
     if (PlayerArrow)
     {
         PlayerArrow->SetRenderTransformPivot(FVector2D(0.5f, 0.5f));
     }
 }
 
+void UMapWidget::SetArrowYawOffset(float InOffsetDegrees)
+{
+    ArrowYawOffset = InOffsetDegrees;
+}
+
 void UMapWidget::SetMapTexture(UTexture2D* Texture)
 {
     if (!MapImage || !Texture) return;
 
-    FSlateBrush Brush;
-    Brush.SetResourceObject(Texture);
-    Brush.ImageSize = FVector2D(Texture->GetSizeX(), Texture->GetSizeY());
-    MapImage->SetBrush(Brush);
+    // Reliable way to update UMG image brush resource
+    MapImage->SetBrushFromTexture(Texture, /*bMatchSize=*/true);
+    UE_LOG(LogTemp, Warning, TEXT("Rebuild IN"));
 
-    MapPixelSize = Brush.ImageSize;
+    MapPixelSize = FVector2D((float)Texture->GetSizeX(), (float)Texture->GetSizeY());
 
-    // Optional: ensure the map image slot matches the texture size (if it’s in a Canvas)
+    // If MapImage sits in a CanvasPanel, make sure its slot matches the texture size
     if (UCanvasPanelSlot* MapCanvasSlot = Cast<UCanvasPanelSlot>(MapImage->Slot))
     {
         MapCanvasSlot->SetSize(MapPixelSize);
     }
+
+    // Force Slate to rebuild/render using the new resource
+    MapImage->InvalidateLayoutAndVolatility();
+    MapImage->SynchronizeProperties();
+    InvalidateLayoutAndVolatility();
 }
 
 void UMapWidget::UpdatePlayerArrowTransform(float YawDegrees, float U, float V)
 {
     if (!PlayerArrow) return;
 
-    // Rotate arrow (yaw)
+    // Rotate arrow
     PlayerArrow->SetRenderTransformAngle(YawDegrees + ArrowYawOffset);
 
-    // Place arrow using Canvas slot position so anchors/layout are respected
-    if (UCanvasPanelSlot* ArrowSlot = Cast<UCanvasPanelSlot>(PlayerArrow->Slot))
+    // Place arrow: this assumes U,V already match your texture orientation.
+    // (If you flipped V in WorldToMapUV, do NOT flip here again.)
+    if (UCanvasPanelSlot* ArrowCanvasSlot = Cast<UCanvasPanelSlot>(PlayerArrow->Slot))
     {
-        // IMPORTANT: If your texture rows are "top = +Y", you probably want V flipped here.
-        // If you already flipped Y during texture generation, do NOT flip again.
-        // Start with no flip; if it's vertically mirrored, set V = 1.f - V.
-        const float X = (1.f - U) * MapPixelSize.X;   // flip U
-        const float Y = (1.f - V) * MapPixelSize.Y;
+        const float X = U * MapPixelSize.X;
+        const float Y = V * MapPixelSize.Y;
 
-        ArrowSlot->SetAlignment(FVector2D(0.5f, 0.5f));   // arrow centered on point
-        ArrowSlot->SetPosition(FVector2D(X, Y));
+        ArrowCanvasSlot->SetAlignment(FVector2D(0.5f, 0.5f)); // center on point
+        ArrowCanvasSlot->SetPosition(FVector2D(X, Y));
     }
 }

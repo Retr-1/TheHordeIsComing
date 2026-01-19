@@ -24,13 +24,15 @@ bool UMapTextureGenerator::WorldToMapUV(const ANoiseTerrainActor* Terrain, float
     const FVector World(WorldX, WorldY, 0.f);
     const FVector Local = Terrain->GetActorTransform().InverseTransformPosition(World);
 
-    OutU = (Local.X + HalfW) / (2.f * HalfW);
-    OutV = (Local.Y + HalfH) / (2.f * HalfH);
+    // Match the texture convention:
+    OutU = (HalfW - Local.X) / (2.f * HalfW); // X mirrored
+    OutV = (HalfH - Local.Y) / (2.f * HalfH); // Y flipped
 
     OutU = FMath::Clamp(OutU, 0.f, 1.f);
     OutV = FMath::Clamp(OutV, 0.f, 1.f);
     return true;
 }
+
 
 
 UTexture2D* UMapTextureGenerator::GenerateMapTexture(ANoiseTerrainActor* Terrain, const FMapGenSettings& Settings)
@@ -59,13 +61,15 @@ UTexture2D* UMapTextureGenerator::GenerateMapTexture(ANoiseTerrainActor* Terrain
     for (int32 px = 0; px < W; ++px)
     {
         const float u = (float)px / (float)(W - 1);
-        LocalXs[px] = FMath::Lerp(-HalfW, +HalfW, u);
+        LocalXs[px] = FMath::Lerp(HalfW, -HalfW, u); // X mirrored (since you needed (1-U))
     }
+
     for (int32 py = 0; py < H; ++py)
     {
         const float v = (float)py / (float)(H - 1);
-        LocalYs[py] = FMath::Lerp(-HalfH, +HalfH, v);
+        LocalYs[py] = FMath::Lerp(HalfH, -HalfH, v); // Y flipped (north-up)
     }
+
 
     // Pixel buffer
     TArray<FColor> Pixels;
@@ -75,7 +79,7 @@ UTexture2D* UMapTextureGenerator::GenerateMapTexture(ANoiseTerrainActor* Terrain
         {
             // Optional tiny dithering around thresholds (cheap visual improvement)
             float z = Z;
-            if (Settings.BandDitherStrength > 0)
+            if (Settings.BandDitherStrength > 0 && false)
             {
                 const uint8 r = Hash8(px, py);
                 const float n = ((float)r / 255.f) * 2.f - 1.f; // [-1..1]
@@ -130,5 +134,24 @@ UTexture2D* UMapTextureGenerator::GenerateMapTexture(ANoiseTerrainActor* Terrain
     Tex->GetPlatformData()->Mips[0].BulkData.Unlock();
 
     Tex->UpdateResource();
+
+
+
+
+    UE_LOG(LogTemp, Warning, TEXT("[MapGen] Called. Terrain=%s Seed=%d"),
+        *GetNameSafe(Terrain), Terrain->Seed);
+
+
+    const float Zc = Terrain->HeightAtLocalXY(0.f, 0.f, true);
+    const float Zp1 = Terrain->HeightAtLocalXY(-HalfW * 0.5f, +HalfH * 0.5f, true);
+    const float Zp2 = Terrain->HeightAtLocalXY(+HalfW * 0.5f, -HalfH * 0.5f, true);
+
+    UE_LOG(LogTemp, Warning, TEXT("[MapGen] Samples: center=%.2f p1=%.2f p2=%.2f"), Zc, Zp1, Zp2);
+
+
+
+
+
+
     return Tex;
 }

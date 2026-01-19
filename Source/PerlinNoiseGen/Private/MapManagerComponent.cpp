@@ -95,34 +95,6 @@ void UMapManagerComponent::EnsureWidgetCreated()
     }
 }
 
-void UMapManagerComponent::ApplyInputMode(bool bShow)
-{
-    APlayerController* PC = Cast<APlayerController>(GetOwner());
-    if (!PC) return;
-
-    if (bShow)
-    {
-        PC->bShowMouseCursor = false;
-
-        if (bUIOnlyWhileMapOpen && MapWidget)
-        {
-            FInputModeGameAndUI Mode;
-            Mode.SetWidgetToFocus(MapWidget->TakeWidget());
-            PC->SetInputMode(Mode);
-        }
-    }
-    else
-    {
-        PC->bShowMouseCursor = false;
-
-        if (bUIOnlyWhileMapOpen)
-        {
-            FInputModeGameOnly Mode;
-            PC->SetInputMode(Mode);
-        }
-    }
-}
-
 
 void UMapManagerComponent::RebuildMap()
 {
@@ -134,6 +106,7 @@ void UMapManagerComponent::RebuildMap()
     UTexture2D* Tex = MapGen->GenerateMapTexture(TerrainActor, MapSettings);
     if (Tex)
     {
+        
         MapWidget->SetMapTexture(Tex);
     }
 }
@@ -148,8 +121,6 @@ void UMapManagerComponent::ShowMap()
 
     MapWidget->SetVisibility(ESlateVisibility::Visible);
     bMapVisible = true;
-
-    ApplyInputMode(true);
 }
 
 void UMapManagerComponent::HideMap()
@@ -159,7 +130,6 @@ void UMapManagerComponent::HideMap()
     MapWidget->SetVisibility(ESlateVisibility::Hidden);
     bMapVisible = false;
 
-    ApplyInputMode(false);
 }
 
 void UMapManagerComponent::ToggleMap()
