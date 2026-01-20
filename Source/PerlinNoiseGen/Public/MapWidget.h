@@ -5,6 +5,9 @@
 
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/CanvasPanel.h"
+#include "Components/ScaleBox.h"
+#include "Components/Overlay.h"
 #include "MapWidget.generated.h"
 
 class UImage;
@@ -28,7 +31,10 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Map")
     void SetArrowYawOffset(float InOffsetDegrees);
 
+
 protected:
+    FVector2D GetDisplayedMapSize() const;
+
     virtual void NativeConstruct() override;
 
 public:
@@ -38,6 +44,12 @@ public:
 
     UPROPERTY(meta = (BindWidget))
     UImage* PlayerArrow = nullptr;
+
+    UPROPERTY(meta = (BindWidgetOptional))
+    UScaleBox* MapScaleBox = nullptr;
+
+    UPROPERTY(meta = (BindWidget))
+    UCanvasPanel* RootCanvas;
 
 private:
     // Cached map size in pixels (from the current texture)

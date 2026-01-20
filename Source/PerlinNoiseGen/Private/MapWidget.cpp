@@ -56,10 +56,33 @@ void UMapWidget::UpdatePlayerArrowTransform(float YawDegrees, float U, float V)
     // (If you flipped V in WorldToMapUV, do NOT flip here again.)
     if (UCanvasPanelSlot* ArrowCanvasSlot = Cast<UCanvasPanelSlot>(PlayerArrow->Slot))
     {
-        const float X = U * MapPixelSize.X;
-        const float Y = V * MapPixelSize.Y;
+        const FVector2D DisplaySize = GetDisplayedMapSize();
+        const FVector2D CanvasSize = RootCanvas->GetCachedGeometry().GetLocalSize();
+        const float X = (U-0.5f) * DisplaySize.X + CanvasSize.X/2;
+        const float Y = (V-0.5f) * DisplaySize.Y + CanvasSize.Y/2;
+        UE_LOG(LogTemp, Warning, TEXT("X %f, Y %f"), X, Y);
 
         ArrowCanvasSlot->SetAlignment(FVector2D(0.5f, 0.5f)); // center on point
         ArrowCanvasSlot->SetPosition(FVector2D(X, Y));
     }
+}
+
+
+FVector2D UMapWidget::GetDisplayedMapSize() const
+{
+    // Best: actual geometry size of MapImage at runtime
+    if (MapScaleBox)
+    {
+        const FGeometry& Geo = MapScaleBox->GetCachedGeometry();
+        const FVector2D Size = Geo.GetLocalSize();
+
+        // CachedGeometry can be (0,0) on first frame; fall back
+        if (Size.X > 1.f && Size.Y > 1.f)
+        {
+            return Size;
+        }
+    }
+
+    // Fallback to texture size if geometry not ready
+    return MapPixelSize;
 }
