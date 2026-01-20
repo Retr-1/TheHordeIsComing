@@ -31,10 +31,16 @@ public:
     UFUNCTION(BlueprintCallable, Category = "Map")
     void SetArrowYawOffset(float InOffsetDegrees);
 
+    // ICON API
+    UImage* EnsureActorIcon(AActor* Actor, UTexture2D* IconTex, const FVector2D& IconSize);
+    void RemoveActorIcon(AActor* Actor);
+    void SetActorIconPosition(AActor* Actor, float U, float V);
+    void ClearAllActorIcons();
 
-protected:
     FVector2D GetDisplayedMapSize() const;
 
+
+protected:
     virtual void NativeConstruct() override;
 
 public:
@@ -57,4 +63,8 @@ private:
 
     // Degrees added to the pawn/controller yaw so arrow art matches world forward
     float ArrowYawOffset = 0.f;
+
+    // One UImage per actor
+    UPROPERTY()
+    TMap<TWeakObjectPtr<AActor>, TObjectPtr<UImage>> ActorToIconImage;
 };

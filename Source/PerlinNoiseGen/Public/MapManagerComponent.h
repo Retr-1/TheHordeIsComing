@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
 #include "MapTextureGenerator.h"
+#include "MapIconInterface.h"
 #include "MapManagerComponent.generated.h"
 
 class UMapWidget;
@@ -35,6 +36,20 @@ public:
 
     UFUNCTION(BlueprintCallable, Category = "Map")
     void RebuildMap();
+
+    UPROPERTY(EditAnywhere, Category = "Map|Icons")
+    float IconRefreshInterval = 0.5f;
+
+    UPROPERTY(EditAnywhere, Category = "Map|Icons")
+    bool bUpdateIconsOnlyWhenMapVisible = true;
+
+    float IconRefreshAccumulator = 0.f;
+
+    UPROPERTY()
+    TArray<TWeakObjectPtr<AActor>> IconActors;
+
+    void RefreshIconActorList();
+    void UpdateIconWidgets();
 
 public:
     UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Map")

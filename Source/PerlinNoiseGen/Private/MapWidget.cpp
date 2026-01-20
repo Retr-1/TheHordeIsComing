@@ -18,6 +18,86 @@ void UMapWidget::NativeConstruct()
     }
 }
 
+UImage* UMapWidget::EnsureActorIcon(AActor* Actor, UTexture2D* IconTex, const FVector2D& IconSize)
+{
+    if (!RootCanvas || !Actor || !IconTex) return nullptr;
+
+    if (UImage* Existing = ActorToIconImage.FindRef(Actor))
+    {
+        Existing->SetBrushFromTexture(IconTex, true);
+
+        if (UCanvasPanelSlot* CSlot = Cast<UCanvasPanelSlot>(Existing->Slot))
+        {
+            CSlot->SetSize(IconSize);
+            CSlot->SetAlignment(FVector2D(0.5f, 0.5f));
+        }
+        return Existing;
+    }
+
+    UImage* NewImg = NewObject<UImage>(this);
+    if (!NewImg) return nullptr;
+
+    NewImg->SetBrushFromTexture(IconTex, true);
+    NewImg->SetRenderTransformPivot(FVector2D(0.5f, 0.5f));
+
+    // Add to canvas
+    UCanvasPanelSlot* CSlot = RootCanvas->AddChildToCanvas(NewImg);
+    if (CSlot)
+    {
+        CSlot->SetSize(IconSize);
+        CSlot->SetAlignment(FVector2D(0.5f, 0.5f));
+        CSlot->SetZOrder(10); // above map image, below arrow if needed
+    }
+
+    ActorToIconImage.Add(Actor, NewImg);
+    return NewImg;
+}
+
+void UMapWidget::RemoveActorIcon(AActor* Actor)
+{
+    if (!Actor) return;
+
+    if (TObjectPtr<UImage>* Found = ActorToIconImage.Find(Actor))
+    {
+        if (UImage* Img = Found->Get())
+        {
+            Img->RemoveFromParent();
+        }
+        ActorToIconImage.Remove(Actor);
+    }
+}
+
+void UMapWidget::ClearAllActorIcons()
+{
+    for (auto& KVP : ActorToIconImage)
+    {
+        if (UImage* Img = KVP.Value)
+        {
+            Img->RemoveFromParent();
+        }
+    }
+    ActorToIconImage.Empty();
+}
+
+void UMapWidget::SetActorIconPosition(AActor* Actor, float U, float V)
+{
+    if (!Actor) return;
+
+    UImage* Img = ActorToIconImage.FindRef(Actor);
+    if (!Img) return;
+
+    UCanvasPanelSlot* CanvasSlot = Cast<UCanvasPanelSlot>(Img->Slot);
+    if (!CanvasSlot || !RootCanvas) return;
+
+    const FVector2D DisplaySize = GetDisplayedMapSize();
+    const FVector2D CanvasSize = RootCanvas->GetCachedGeometry().GetLocalSize();
+
+    const float X = (U - 0.5f) * DisplaySize.X + CanvasSize.X * 0.5f;
+    const float Y = (V - 0.5f) * DisplaySize.Y + CanvasSize.Y * 0.5f;
+
+    CanvasSlot->SetPosition(FVector2D(X, Y));
+}
+
 void UMapWidget::SetArrowYawOffset(float InOffsetDegrees)
 {
     ArrowYawOffset = InOffsetDegrees;
