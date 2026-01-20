@@ -29,7 +29,6 @@ void UMapWidget::SetMapTexture(UTexture2D* Texture)
 
     // Reliable way to update UMG image brush resource
     MapImage->SetBrushFromTexture(Texture, /*bMatchSize=*/true);
-    UE_LOG(LogTemp, Warning, TEXT("Rebuild IN"));
 
     MapPixelSize = FVector2D((float)Texture->GetSizeX(), (float)Texture->GetSizeY());
 
@@ -60,7 +59,6 @@ void UMapWidget::UpdatePlayerArrowTransform(float YawDegrees, float U, float V)
         const FVector2D CanvasSize = RootCanvas->GetCachedGeometry().GetLocalSize();
         const float X = (U-0.5f) * DisplaySize.X + CanvasSize.X/2;
         const float Y = (V-0.5f) * DisplaySize.Y + CanvasSize.Y/2;
-        UE_LOG(LogTemp, Warning, TEXT("X %f, Y %f"), X, Y);
 
         ArrowCanvasSlot->SetAlignment(FVector2D(0.5f, 0.5f)); // center on point
         ArrowCanvasSlot->SetPosition(FVector2D(X, Y));
