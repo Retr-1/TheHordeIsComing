@@ -18,13 +18,14 @@ void UMapWidget::NativeConstruct()
     }
 }
 
-UImage* UMapWidget::EnsureActorIcon(AActor* Actor, UTexture2D* IconTex, const FVector2D& IconSize)
+UImage* UMapWidget::EnsureActorIcon(AActor* Actor, UTexture2D* IconTex, const FVector2D& IconSize, const FLinearColor& Tint)
 {
     if (!RootCanvas || !Actor || !IconTex) return nullptr;
 
     if (UImage* Existing = ActorToIconImage.FindRef(Actor))
     {
         Existing->SetBrushFromTexture(IconTex, true);
+        Existing->SetColorAndOpacity(Tint);
 
         if (UCanvasPanelSlot* CSlot = Cast<UCanvasPanelSlot>(Existing->Slot))
         {
@@ -38,6 +39,7 @@ UImage* UMapWidget::EnsureActorIcon(AActor* Actor, UTexture2D* IconTex, const FV
     if (!NewImg) return nullptr;
 
     NewImg->SetBrushFromTexture(IconTex, true);
+    NewImg->SetColorAndOpacity(Tint);
     NewImg->SetRenderTransformPivot(FVector2D(0.5f, 0.5f));
 
     // Add to canvas
@@ -157,6 +159,7 @@ FVector2D UMapWidget::GetDisplayedMapSize() const
         // CachedGeometry can be (0,0) on first frame; fall back
         if (Size.X > 1.f && Size.Y > 1.f)
         {
+      
             return Size;
         }
     }

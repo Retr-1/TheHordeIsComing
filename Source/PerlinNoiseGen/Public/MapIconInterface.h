@@ -27,4 +27,12 @@ public:
     UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Map")
     FVector GetMapIconWorldLocation() const;
     virtual FVector GetMapIconWorldLocation_Implementation() const { return FVector::ZeroVector; }
+
+    UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Map")
+    FLinearColor GetMapIconTint() const;
+
+    virtual FLinearColor GetMapIconTint_Implementation() const
+    {
+        return FLinearColor::White; // no tint by default
+    }
 };

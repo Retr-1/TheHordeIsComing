@@ -21,8 +21,6 @@ void UMapManagerComponent::BeginPlay()
 {
     Super::BeginPlay();
 
-
-
     MapGen = NewObject<UMapTextureGenerator>(this);
 
     EnsureTerrainFound();
@@ -56,6 +54,10 @@ void UMapManagerComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 {
     Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 
+    if (!bMapVisible) {
+        return;
+    }
+
     // Arrow update (your existing logic)
     if (bMapVisible && MapWidget && MapGen && TerrainActor)
     {
@@ -74,12 +76,6 @@ void UMapManagerComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
         }
     }
 
-    // Icon update throttled
-    if (bUpdateIconsOnlyWhenMapVisible && !bMapVisible)
-    {
-        return;
-    }
-
     IconRefreshAccumulator += DeltaTime;
     if (IconRefreshAccumulator >= IconRefreshInterval)
     {
@@ -87,8 +83,9 @@ void UMapManagerComponent::TickComponent(float DeltaTime, ELevelTick TickType, F
 
         // Refresh list sometimes (handles spawned/destroyed actors cleanly)
         RefreshIconActorList();
-        UpdateIconWidgets();
     }
+
+    UpdateIconWidgets();
 }
 
 void UMapManagerComponent::RefreshIconActorList()
@@ -141,10 +138,13 @@ void UMapManagerComponent::UpdateIconWidgets()
         const FVector Override = IMapIconInterface::Execute_GetMapIconWorldLocation(A);
         if (!Override.IsNearlyZero()) WorldLoc = Override;
 
+        const FLinearColor Tint =
+            IMapIconInterface::Execute_GetMapIconTint(A);
+
         float U, V;
         if (MapGen->WorldToMapUV(TerrainActor, WorldLoc.X, WorldLoc.Y, U, V))
         {
-            MapWidget->EnsureActorIcon(A, IconTex, IconSize);
+            MapWidget->EnsureActorIcon(A, IconTex, IconSize, Tint);
             MapWidget->SetActorIconPosition(A, U, V);
         }
     }
@@ -191,10 +191,6 @@ void UMapManagerComponent::RebuildMap()
         
         MapWidget->SetMapTexture(Tex);
     }
-
-    // Whenever map is rebuilt, refresh icon list and update once
-    RefreshIconActorList();
-    UpdateIconWidgets();
 }
 
 void UMapManagerComponent::ShowMap()
@@ -202,15 +198,15 @@ void UMapManagerComponent::ShowMap()
     EnsureWidgetCreated();
     if (!MapWidget) return;
 
+    UE_LOG(LogTemp, Warning, TEXT("Widget Exists"));
+
     // Rebuild on open so it matches terrain regen at runtime
     RebuildMap();
+    IconRefreshAccumulator = IconRefreshInterval;
 
     MapWidget->SetVisibility(ESlateVisibility::Visible);
     bMapVisible = true;
 
-    // Update immediately on open
-    RefreshIconActorList();
-    UpdateIconWidgets();
 }
 
 void UMapManagerComponent::HideMap()
@@ -224,7 +220,6 @@ void UMapManagerComponent::HideMap()
 
 void UMapManagerComponent::ToggleMap()
 {
-    UE_LOG(LogTemp, Warning, TEXT("Hello World"));
     if (bMapVisible) HideMap();
     else ShowMap();
 }

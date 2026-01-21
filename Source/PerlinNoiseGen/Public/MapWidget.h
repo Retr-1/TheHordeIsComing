@@ -32,7 +32,7 @@ public:
     void SetArrowYawOffset(float InOffsetDegrees);
 
     // ICON API
-    UImage* EnsureActorIcon(AActor* Actor, UTexture2D* IconTex, const FVector2D& IconSize);
+    UImage* EnsureActorIcon(AActor* Actor, UTexture2D* IconTex, const FVector2D& IconSize, const FLinearColor& Tint);
     void RemoveActorIcon(AActor* Actor);
     void SetActorIconPosition(AActor* Actor, float U, float V);
     void ClearAllActorIcons();
