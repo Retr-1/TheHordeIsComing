@@ -96,7 +96,7 @@ public:
     UPROPERTY(EditAnywhere, Category = "Terrain|Flatten")
     FVector2D FlattenSize = FVector2D(5000.f, 5000.f); // cm, width & height of the rectangle
 
-    UPROPERTY(EditAnywhere, Category = "Terrain|Flatten")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain|Flatten")
     float FlattenHeight = 0.f; // Z of the flat area (0 = at world origin height)
 
     UPROPERTY(EditAnywhere, Category = "Terrain|Flatten", meta = (ClampMin = "1", UIMin = "1"))
@@ -184,6 +184,9 @@ public:
 
     UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Terrain|Query")
     float HeightAtLocalXY(float LocalX, float LocalY, bool bClampToBounds = true) const;
+
+    UFUNCTION(BlueprintCallable, BlueprintPure, Category = "Terrain|Size")
+    FVector2D GetMapSize() const;
 
 protected:
     virtual void OnConstruction(const FTransform& Transform) override;

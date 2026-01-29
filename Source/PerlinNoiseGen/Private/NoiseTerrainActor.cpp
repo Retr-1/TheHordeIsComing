@@ -424,6 +424,11 @@ float ANoiseTerrainActor::HeightAtLocalXY(float LocalX, float LocalY, bool bClam
     return FMath::Lerp(hx0, hx1, ty);
 }
 
+FVector2D ANoiseTerrainActor::GetMapSize() const
+{
+    return FVector2D(NumQuadsX * GridSpacing, NumQuadsY * GridSpacing);
+}
+
 
 float ANoiseTerrainActor::GetHeightAtWorldXY(float WorldX, float WorldY, bool bClampToBounds) const
 {
