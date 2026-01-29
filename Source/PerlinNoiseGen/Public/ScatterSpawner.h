@@ -103,7 +103,7 @@ public:
     AScatterSpawner();
 
     // Terrain to query
-    UPROPERTY(EditAnywhere, Category = "Terrain")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Terrain")
     ANoiseTerrainActor* Terrain = nullptr;
 
     // Deterministic placement
@@ -121,10 +121,10 @@ public:
     FVector2D RegionMax_Local = FVector2D(10000, 10000);
 
     // Multiple spawn batches (trees, chests, …)
-    UPROPERTY(EditAnywhere, Category = "Spawn")
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
     TArray<FSpawnRequest> Requests;
 
-    UFUNCTION(CallInEditor, Category = "Spawn")
+    UFUNCTION(CallInEditor, BlueprintCallable, Category = "Spawn")
     void Generate();
 
     UFUNCTION(CallInEditor, Category = "Spawn")
