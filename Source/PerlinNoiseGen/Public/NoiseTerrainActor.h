@@ -25,7 +25,7 @@ public:
     ANoiseTerrainActor();
 
     // ---- Components ----
-    UPROPERTY(VisibleAnywhere, Category = "Components")
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Terrain", meta = (AllowPrivateAccess = "true"))
     UProceduralMeshComponent* ProcMesh;
 
     // ---- Grid ----
