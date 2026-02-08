@@ -119,10 +119,13 @@ UTexture2D* UMapTextureGenerator::GenerateMapTexture(ANoiseTerrainActor* Terrain
     UTexture2D* Tex = UTexture2D::CreateTransient(W, H, PF_B8G8R8A8);
     if (!Tex) return nullptr;
 
-    Tex->MipGenSettings = TMGS_NoMipmaps;
-    Tex->CompressionSettings = TC_VectorDisplacementmap; // crisp
+    // Make it crisp (important for minimaps/icons)
+    Tex->Filter = TF_Nearest;          // or TF_Bilinear if you prefer smooth
+    Tex->NeverStream = true;           // prevent streaming system messing with it
+
+    // Your map colors are "color", so sRGB should be true.
+    // If you ever use it as data (mask/height), set SRGB=false.
     Tex->SRGB = true;
-    Tex->NeverStream = true;
 
     if (!Tex->GetPlatformData() || Tex->GetPlatformData()->Mips.Num() == 0)
     {
